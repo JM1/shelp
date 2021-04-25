@@ -121,8 +121,8 @@ apt-get dist-upgrade -y
 # install tools
 apt-get install -y vim screen aptitude fzf git
 
-# install docker runtime
-apt-get install -y docker.io
+# install Docker runtime and Docker Compose
+apt-get install -y docker.io docker-compose
 
 # add user pi to group docker to allow us to run docker containers
 adduser pi docker
