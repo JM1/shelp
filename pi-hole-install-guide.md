@@ -24,6 +24,12 @@ What you need:
 No display or keyboard has to be attached to the Raspberry Pi because this guide performs a headless installation.
 But attaching both is still useful for diagnosing problems.
 
+Other Raspberry Pi's, such as `Raspberry Pi 1 Model B`, `Raspberry Pi 1 Model B+` and `Raspberry Pi Zero` are currently
+not supported by Docker Pi-hole (cf.
+[#218](https://github.com/pi-hole/docker-pi-hole/issues/218),
+[#245](https://github.com/pi-hole/docker-pi-hole/issues/245)). It is recommended to use a native Pi-hole install on
+these systems. After all they are single core and performance is probably better without Docker's multi-tasking.
+
 ## Raspberry Pi Setup
 
 First download and extract [`Raspberry Pi OS Lite`](https://www.raspberrypi.org/software/operating-systems/), then flash
