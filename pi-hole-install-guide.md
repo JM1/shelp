@@ -252,6 +252,12 @@ services:
       # See section on router setup below for more info.
       #DHCP_IPv6: 'true'
 
+      # Increase time (in milliseconds) Pi-hole scripts in /etc/cont-finish.d can take before S6 sends a KILL signal,
+      # if Pi-hole's container fails to start with error messages like e.g.
+      #   s6-supervise pihole-FTL: warning: finish script lifetime reached maximum value - sending it a SIGKILL
+      #   s6-supervise cron: warning: finish script lifetime reached maximum value - sending it a SIGKILL
+      #S6_KILL_FINISH_MAXTIME: 30000
+
     # Volumes store your data between container upgrades
     volumes:
       - './etc-pihole/:/etc/pihole/'
