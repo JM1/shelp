@@ -8,7 +8,6 @@
 
 What you need:
 * [`Raspberry Pi`](https://www.raspberrypi.org/products/) which will host Pi-hole later:
-  + `Raspberry Pi 1 Model B+`
   + `Raspberry Pi 2 Model B`
   + `Raspberry Pi 3 Model A+` (no ethernet, only wifi)
   + `Raspberry Pi 3 Model B`
