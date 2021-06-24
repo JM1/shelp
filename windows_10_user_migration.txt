@@ -1,0 +1,22 @@
+#!/bin/sh
+# vim:set syntax=sh:
+# kate: syntax bash;
+exit # do not run any commands when file is executed
+#
+# Migrate Users from e.g. Windows 7 to Windows 10 (Offline)
+#
+
+cd "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\User State Migration Tool\amd64"
+
+# Copy MigDocs.xml and MigApp.xml from
+#  C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\User State Migration Tool\amd64
+# to
+#  C:\Tmp
+# and edit according to:
+#  https://fearthemonkey.co.uk/usmt-how-to-back-up-google-chrome-bookmarks/
+#  https://www.klaus-hartnegg.de/gpo/2016-07-19_USMT.html
+
+# Old drive including the old Windows directory is mounted at D:
+scanstate.exe c:\migstore /i:C:\Tmp\MigDocs.xml /i:C:\Tmp\MigApp.xml /v:13 /tel:off /offlineWinDir:D:\Windows\
+
+loadstate c:\migstore /i:C:\Tmp\MigDocs.xml /i:C:\Tmp\MigApp.xml /lac /lae /tel:off
