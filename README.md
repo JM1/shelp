@@ -74,6 +74,8 @@ to fuzzy-find them. Write down a typescript of your shell activity, add comments
 changes. Later press <kbd>Ctrl</kbd> + <kbd>H</kbd> to fuzzy-find your notes and all examples provided in this
 repository.
 
+![Screenshot](screenshot.png)
+
 ## Author
 
 Jakob Meng
