@@ -38,7 +38,7 @@ mkdir -p ~/.local/share/
 git -C ~/.local/share/ clone https://github.com/JM1/shelp.git
 
 # Configure Bash
-cat << EOF >> ~/.bashrc
+cat << 'EOF' >> ~/.bashrc
 # Enable fzf key bindings like Ctrl+R
 . /usr/share/doc/fzf/examples/key-bindings.bash
 
