@@ -76,6 +76,12 @@ repository.
 
 ![Screenshot](screenshot.png)
 
+## License
+
+Creative Commons Attribution Share Alike 4.0 International
+
+See [LICENSE.txt](LICENSE.txt) to see the full text.
+
 ## Author
 
 Jakob Meng
