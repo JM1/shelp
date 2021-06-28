@@ -214,6 +214,21 @@ virsh edit ${VM}
 virsh qemu-monitor-command --hmp ${VM} 'sendkey alt-sysrq-r'
 
 ########################################
+#
+# Send commands to QEMU guest agent
+#
+# Ref.:
+# https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-qemu-ga.html
+# https://access.redhat.com/solutions/732773
+# https://man.archlinux.org/man/qemu-ga-ref.7
+# man virsh
+# https://wiki.qemu.org/Features/GuestAgent
+
+virsh qemu-agent-command "$VM" '{"execute":"guest-info"}' --pretty
+
+virsh qemu-agent-command "$VM" '{"execute":"guest-exec", "arguments": { "path": "wall", "arg": ["test"], "capture-output": "true"} }' --pretty
+
+########################################
 # Attach usb device
 #
 XML=...
