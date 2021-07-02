@@ -247,6 +247,7 @@ apt-get install \
 # Optional: analysis tools
 apt install atop htop iotop psmisc
 apt install dlocate lshw lsof
+# TODO: Replace iperf with iperf3?
 apt install dnsutils ethtool iperf iproute2 iputils-ping net-tools
 
 # Optional: partitioning and filesystem tools
