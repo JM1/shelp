@@ -139,6 +139,36 @@ lvcreate --name MY_LV_NAME --size 100%FREE --type raid1 --mirrors 1 MY_VG_NAME
 #
 lvcreate --name MY_LV_NAME --size 10G --type raid1 --mirrors 1 --raidintegrity y MY_VG_NAME
 
+# Scrub a RAID LV
+# "Scrubbing is a full scan of the RAID LV requested by a user. Scrubbing can find
+#  problems that are missed by partial synchronization.
+#
+#  Scrubbing assumes that RAID metadata and bitmaps may be inaccurate, so it
+#  verifies all RAID metadata, LV data, and parity blocks. Scrubbing can find
+#  inconsistencies caused by hardware errors or degradation. These kinds of
+#  problems may be undetected by automatic synchronization which excludes areas
+#  outside of the RAID write-intent bitmap.
+#
+#  The command to scrub a RAID LV can operate in two different modes:
+#
+#  lvchange --syncaction check|repair LV
+#
+#  check Check mode is read-only and only detects inconsistent areas in the RAID
+#  LV, it does not correct them.
+#
+#  repair Repair mode checks and writes corrected blocks to synchronize any
+#  inconsistent areas.
+#
+#  Scrubbing can consume a lot of bandwidth and slow down application I/O on the
+#  RAID LV."
+# Ref.: man lvmraid
+#
+# Detect inconsistent areas in the RAID LV
+lvchange --syncaction check MY_VG_NAME/MY_LV_NAME
+#
+# Check and write corrected blocks to synchronize any inconsistent areas
+lvchange --syncaction repair MY_VG_NAME/MY_LV_NAME
+
 # Enabling dm-cache caching for a logical volume
 #
 # NOTE: Adding a cache volume to a RAID logical volume with DM integrity is not (yet?) supported. For example:
