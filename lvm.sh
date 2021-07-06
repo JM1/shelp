@@ -93,7 +93,7 @@ lvcreate --name MY_LV_NAME --size 100%FREE --type raid1 --mirrors 1 MY_VG_NAME
 #
 # NOTE: Requires Debian 11 (Bullseye) or later
 #
-# NOTE: LVM's DM integrity layer has a severe impact on performance, e.g. 
+# NOTE: LVM's DM integrity layer has a severe impact on performance, e.g.
 #       read/write bandwidth on PCIe SSDs is easily decreased by ten and
 #       latency increases by five.
 #
@@ -114,7 +114,7 @@ lvcreate --name MY_LV_NAME --size 100%FREE --type raid1 --mirrors 1 MY_VG_NAME
 #  LVM must be able to allocate the integrity metadata sub LV on a single PV that is
 #  already in use by the associated RAID image. This can potentially cause a problem
 #  during lvextend if the original PV holding the image and integrity metadata is full.
-#  To work around this limitation, remove integrity, extend the LV, and add integrity 
+#  To work around this limitation, remove integrity, extend the LV, and add integrity
 #  again.
 #
 #  Additional RAID images can be added to raid1 LVs, but not to other raid levels.
@@ -123,7 +123,7 @@ lvcreate --name MY_LV_NAME --size 100%FREE --type raid1 --mirrors 1 MY_VG_NAME
 #
 #  RAID LVs with integrity cannot yet be used as sub LVs with other LV types.
 #
-#  The following are not yet permitted on RAID LVs with integrity: 
+#  The following are not yet permitted on RAID LVs with integrity:
 #   lvreduce, pvmove, snapshots, splitmirror, raid syncaction commands, raid rebuild."
 #
 # Ref.: man lvmraid
@@ -140,6 +140,7 @@ lvcreate --name MY_LV_NAME --size 100%FREE --type raid1 --mirrors 1 MY_VG_NAME
 lvcreate --name MY_LV_NAME --size 10G --type raid1 --mirrors 1 --raidintegrity y MY_VG_NAME
 
 # Scrub a RAID LV
+#
 # "Scrubbing is a full scan of the RAID LV requested by a user. Scrubbing can find
 #  problems that are missed by partial synchronization.
 #
@@ -161,10 +162,14 @@ lvcreate --name MY_LV_NAME --size 10G --type raid1 --mirrors 1 --raidintegrity y
 #
 #  Scrubbing can consume a lot of bandwidth and slow down application I/O on the
 #  RAID LV."
+#
 # Ref.: man lvmraid
 #
 # Detect inconsistent areas in the RAID LV
 lvchange --syncaction check MY_VG_NAME/MY_LV_NAME
+#
+# NOTE: LVM does not support fixing inconsistent areas in RAID LVs with DM integrity yet,
+#       see limitations of LVM's DM integrity support.
 #
 # Check and write corrected blocks to synchronize any inconsistent areas
 lvchange --syncaction repair MY_VG_NAME/MY_LV_NAME
