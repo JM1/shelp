@@ -152,15 +152,29 @@ true # noop
 
 ####################
 # Enable APCu
+
+# Debian 8 (Jessie)
 apt-get install php5-apcu
+
+# Debian 9 (Stretch) or later
+apt-get install php-apcu
 
 vi /var/www/owncloud/config/config.php
 # Add the line
 #  'memcache.local' => '\OC\Memcache\APCu',
 # to '$CONFIG = array (...)'
 
-service apache2 restart
+# Nextcloud 21 or later
+# Ref.: https://linuxnews.de/2021/07/nextcloud-22-deaktiviert-php-cronjobs/
+cat << 'EOF' > "$(ls -d -1 /etc/php/7.* | tail -n 1)/cli/conf.d/99-apc-enable-cli.ini"
+; 2021 Jakob Meng, <jakobmeng@web.de>
+; Enable APCu on CLI to e.g. fix issues with Nextcloud’s cron jobs
+; Ref.: https://docs.nextcloud.com/server/21/admin_manual/configuration_server/caching_configuration.html
 
+apc.enable_cli = 1
+EOF
+
+service apache2 restart
 
 ####################
 # Enable Redis
@@ -187,8 +201,6 @@ cat << 'EOF' | patch -p0 -d /
    'logtimezone' => 'UTC',
    'installed' => true,
    'htaccess.RewriteBase' => '/',
--  'memcache.local' => '\\OC\\Memcache\\APCu',
-+  'memcache.local' => '\OC\Memcache\APCu',
 +  'memcache.locking' => '\OC\Memcache\Redis',
 +  'memcache.distributed' => '\OC\Memcache\Redis',
 +  'redis' => [
