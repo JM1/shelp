@@ -164,8 +164,27 @@ vi /var/www/owncloud/config/config.php
 #  'memcache.local' => '\OC\Memcache\APCu',
 # to '$CONFIG = array (...)'
 
-# Nextcloud 21 or later
-# Ref.: https://linuxnews.de/2021/07/nextcloud-22-deaktiviert-php-cronjobs/
+# On Nextcloud 21 or later calling occ from CLI or running Nextcloud's
+# cron jobs will fail when APCu is disabled on CLI:
+#
+#  An unhandled exception has been thrown:
+#  OC\HintException: [0]: Memcache \OC\Memcache\APCu not available for local cache
+#                         (Is the matching PHP module installed and enabled?)
+#
+# To fix this either set apc.enable_cli to 1 on your php.ini config
+# file or append --define apc.enable_cli=1 to php cli commands.
+#
+# Ref.:
+# https://linuxnews.de/2021/07/nextcloud-22-deaktiviert-php-cronjobs/
+# https://docs.nextcloud.com/server/21/admin_manual/configuration_server/caching_configuration.html
+#
+# NOTE: APCu's documentation writes about apc.enable_cli option:
+#       "Mostly for testing and debugging. Setting this enables APC for the CLI
+#        version of PHP. Under normal circumstances, it is not ideal to create, populate
+#        and destroy the APC cache on every CLI request, but for various test scenarios
+#        it is useful to be able to enable APC for the CLI version of PHP easily."
+#       Ref.: https://www.php.net/manual/en/apcu.configuration.php#ini.apcu.enable-cli
+#
 cat << 'EOF' > "$(ls -d -1 /etc/php/7.* | tail -n 1)/cli/conf.d/99-apc-enable-cli.ini"
 ; 2021 Jakob Meng, <jakobmeng@web.de>
 ; Enable APCu on CLI to e.g. fix issues with Nextcloud’s cron jobs
