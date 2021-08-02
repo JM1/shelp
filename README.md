@@ -11,8 +11,8 @@ appreciate it.
 
 This repository has instructions on how to install [Debian](debian_setup.sh) and [Gentoo Prefix](gentoo_prefix.sh),
 host [Nextcloud](nextcloud_setup.sh) and [Gitea](gitea.sh), configure [Apache2](apache_setup.sh) and
-[Dovecot](dovecot.sh), create [SSL certificates](openssl_ca_guide.sh), benchmark using/with [FIO](fio.sh),
-define [libvirt domains](libvirt.sh) and much more.
+[Dovecot](dovecot.sh), create [SSL certificates](openssl_ca_guide.sh), use a [YubiKey](yubikey.sh) with
+[OpenVPN](openvpn.sh), benchmark using/with [FIO](fio.sh), define [libvirt domains](libvirt.sh) and much more.
 The guide below shows how to access these notes from a cli and how to add your own.
 
 ⚠️ **WARNING:** This repository resembles more of a personal sketchpad than a collection of complete guides. Most
