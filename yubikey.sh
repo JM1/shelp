@@ -98,6 +98,7 @@ ykman config set-lock-code --clear
 ########################################
 # Personal Identity Verification (PIV)
 # Ref.:
+# https://developers.yubico.com/PIV/Guides/
 # https://developers.yubico.com/yubico-piv-tool/YubiKey_PIV_introduction.html
 # https://docs.yubico.com/software/yubikey/tools/ykman/PIV_Commands.html
 # https://greenstatic.dev/posts/2020/yubikey-piv-certificate-chain-guide/
