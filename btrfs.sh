@@ -76,3 +76,23 @@ btrfs balance status /mnt
 btrfs device delete /dev/vdb2 /mnt # remove 'devid=2'
 
 ####################
+# Repair a btrfs raid filesystem after failed drives have been replaced and missing drives have been readded
+#
+# "If you lose a drive from a conventional RAID array, or an mdraid array, or a ZFS zpool, that array keeps on
+#  trucking without needing any special flags to mount it. If you then add the failed drive back to the array,
+#  your RAID manager will similarly automatically begin "resilvering" or "rebuilding" the array in order to
+#  catch the temporarily missing drive up on any data it has missed out on.
+#
+#  That, unfortunately, is not the case with btrfs-native RAID."
+#
+# "In a normal RAID array, automounting with the missing disk included would make sense—after all, the array would
+#  automatically and immediately begin rebuilding/resilvering the missing data onto the newly reconnected disk.
+#  But that was not the case with btrfs nine years ago, and it's still not the case with btrfs today."
+#
+# "The command that we were supposed to run was btrfs balance—with both drives connected and a btrfs balance run,
+#  it does correct the missing blocks, and we can now mount degraded on only the other disk"
+# Ref.: https://arstechnica.com/gadgets/2021/09/examining-btrfs-linuxs-perpetually-half-finished-filesystem/2/
+
+btrfs balance /mnt
+
+####################
