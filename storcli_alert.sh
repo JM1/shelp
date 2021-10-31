@@ -19,7 +19,7 @@ cat << 'EOF' >> /etc/cron.daily/storcli_alert
 set -e
 
 storcli64 /call /eall /sall show J | \
-    jq '.Controllers[]."Response Data"."Drive Information"[] | select(."State" != "Onln" and ."State" != "GHS" and ."State" != "UGood")'
+    jq '.Controllers[]."Response Data"."Drive Information"[]? | select(."State" != "Onln" and ."State" != "GHS" and ."State" != "UGood")'
 
 EOF
 
