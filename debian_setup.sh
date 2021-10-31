@@ -444,6 +444,17 @@ EOF2
 
 chmod a+x /etc/cron.daily/low_disk_space_alert
 
+cat << 'EOF' > /etc/cron.daily/journald_stats
+#!/bin/sh
+# 2021 Jakob Meng, <jakobmeng@web.de>
+# List critical errors from systemd's journal
+# Ref.: https://serverfault.com/a/563910/373320
+
+journalctl --since="24 hour ago" --priority=crit --quiet
+EOF
+
+chmod a+x /etc/cron.daily/journald_stats
+
 apt install lm-sensors
 # Use sensors-detect to add required modules automatically to /etc/modules
 sensors-detect
@@ -453,9 +464,7 @@ sensors-detect
 # Optional: Follow lvm_stats.sh
 # Optional: Follow fancontrol.sh
 # Optional: Follow storcli_alert.sh
-
-# TODO: Implement ECC memory monitoring
-# Ref.: https://serverfault.com/questions/643542/how-do-i-get-notified-of-ecc-errors-in-linux/888461#888461
+# Optional: Follow ras_alert.sh
 
 # Optional: Monitor hdd temperature with hddtemp
 #
