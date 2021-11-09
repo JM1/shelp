@@ -8,6 +8,8 @@
 
 What you need:
 * [`Raspberry Pi`](https://www.raspberrypi.org/products/) which will host Pi-hole later:
+  + `Raspberry Pi 1 Model B`
+  + `Raspberry Pi 1 Model B+`
   + `Raspberry Pi 2 Model B`
   + `Raspberry Pi 3 Model A+` (no ethernet, only wifi)
   + `Raspberry Pi 3 Model B`
@@ -24,11 +26,11 @@ What you need:
 No display or keyboard has to be attached to the Raspberry Pi because this guide performs a headless installation.
 But attaching both is still useful for diagnosing problems.
 
-Other Raspberry Pi's, such as `Raspberry Pi 1 Model B`, `Raspberry Pi 1 Model B+` and `Raspberry Pi Zero` are currently
-not supported by Docker Pi-hole (cf.
-[#218](https://github.com/pi-hole/docker-pi-hole/issues/218),
-[#245](https://github.com/pi-hole/docker-pi-hole/issues/245)). It is recommended to use a native Pi-hole install on
-these systems. After all they are single core and performance is probably better without Docker's multi-tasking.
+Other Raspberry Pi's, such as `Raspberry Pi Zero`, might also be compatible to Docker Pi-hole, but are likely to require
+extra configuration steps due to missing ethernet or wifi interfaces.
+
+One single core systems, such as `Raspberry Pi Zero`, `Raspberry Pi 1 Model B` and `Raspberry Pi 1 Model B+`,
+performance is probably better on native Pi-hole installs, without Docker's multi-tasking.
 
 ## Raspberry Pi Setup
 
@@ -124,10 +126,27 @@ apt-get upgrade -y
 apt-get dist-upgrade -y
 
 # install tools
-apt-get install -y vim screen aptitude fzf git
+apt-get install -y vim screen aptitude fzf git curl
 
 # install Docker runtime and Docker Compose
-apt-get install -y docker.io docker-compose
+#
+# Raspberry Pi's with ARM1176JZF-S cores such as Raspberry Pi Zero and Raspberry Pi 1 Model B(+) require containerd 1.5
+# or newer because of a bug in older versions which causes Docker to erroneously pull images for ARMv7 CPUs instead of
+# ARMv6 CPUs. All releases of Raspberry Pi OS are affected including the latest release based on Debian 11 (Bullseye).
+# A fixed version of containerd will first be released with the next Raspberry Pi OS based on Debian 12 (Bookworm).
+# As a workaround for affected systems, containerd packages will be installed from Docker Inc.'s upstream repositories
+# instead of Raspberry Pi OS's repositories.
+# Ref.: https://github.com/pi-hole/docker-pi-hole/issues/245
+if [ "$(cut -d. -f1 /etc/debian_version)" -le 11 ] && \
+   [ "$(awk '/model name/{ print(tolower($4)) }' /proc/cpuinfo)" = "armv6-compatible" ]; then
+    # install Docker from Docker's repositories
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    apt-get install -y docker-compose
+else
+    # install Docker from Raspberry Pi OS repositories
+    apt-get install -y docker.io docker-compose
+fi
 
 # add user pi to group docker to allow us to run docker containers
 adduser pi docker
