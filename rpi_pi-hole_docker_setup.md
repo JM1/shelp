@@ -176,9 +176,10 @@ sudo -s
 
 apt-get install -y unattended-upgrades
 
-cat << 'EOF' | debconf-set-selections
-unattended-upgrades unattended-upgrades/enable_auto_updates boolean true
-EOF
+# Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
+cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
+# Synchronize debconf database with locales' config which will help during
+# package updates because debconf will not complain about config changes
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
 # enable service which delays shutdown or reboots during upgrades
