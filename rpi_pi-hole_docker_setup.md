@@ -186,8 +186,8 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
 
 # reboot after updates if required to apply changes
-sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g'\
-/etc/apt/apt.conf.d/50unattended-upgrades
+sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
+    /etc/apt/apt.conf.d/50unattended-upgrades
 
 reboot
 ```
