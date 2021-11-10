@@ -120,6 +120,9 @@ rfkill block all
 # or
 rfkill block bluetooth
 
+# disable swap to reduce sd card wear and increase its lifespan (optional)
+apt-get remove -y dphys-swapfile
+
 # upgrade all installed packages
 apt-get update
 apt-get upgrade -y
