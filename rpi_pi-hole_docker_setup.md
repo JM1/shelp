@@ -185,21 +185,6 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 # enable service which delays shutdown or reboots during upgrades
 systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
 
-# Do apply all available updates
-cat << 'EOF' | patch -p0 -d /
---- /etc/apt/apt.conf.d/50unattended-upgrades.orig	2019-06-08 16:59:45.000000000 +0200
-+++ /etc/apt/apt.conf.d/50unattended-upgrades	2020-02-16 14:27:15.481253056 +0100
-@@ -30,6 +30,7 @@
- //      "origin=Debian,codename=${distro_codename}-proposed-updates";
-         "origin=Debian,codename=${distro_codename},label=Debian";
-         "origin=Debian,codename=${distro_codename},label=Debian-Security";
-+        "origin=*";
-
-         // Archive or Suite based matching:
-         // Note that this will silently match a different release after
-
-EOF
-
 # reboot after updates if required to apply changes
 sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g'\
 /etc/apt/apt.conf.d/50unattended-upgrades
