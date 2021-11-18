@@ -21,9 +21,10 @@ gpg --dearmor the-asc-file.asc
 gpg --dearmor < the-asc-file.asc > the-gpg-file.gpg
 
 # convert from binary (*.gpg) to ascii (*.asc)
-# is trickier since gpg doesn't know what sort of message it is (public key, encrypted or signed message, a detached signature ...)
+# is trickier since gpg doesn't know what sort of message it is
+# (public key, encrypted or signed message, a detached signature ...)
 gpg --enarmor < the-gpg-file.gpg > the-asc-file.asc
-# now edit the file and change "ARMORED FILE" to e.g. "PUBLIC KEY BLOCK" at the top and at the end
+# now edit the file and e.g. change "ARMORED FILE" to "PUBLIC KEY BLOCK" at the top and at the end
 sed -i 's/ARMORED FILE/PUBLIC KEY BLOCK/g' the-asc-file.asc
 
 # receive key and store in keyring
@@ -36,3 +37,17 @@ gpg --detach-sign --armor SHA256SUMS
 # verify signature and checksums
 gpg --verify SHA256SUMS.asc
 sha256sum -c SHA256SUMS
+
+# export ascii armored version of the public key
+gpg --output public.pgp --armor --export username@email
+
+# export ascii armored version of the secret key
+gpg --output private.pgp --armor --export-secret-key username@email
+
+# "For most use cases, the secret key need not be exported and should not distributed.
+#  If the purpose is to create a backup key, you should use the backup option. This
+#  will export all necessary information to restore the secrets keys including the
+#  trust database information. Make sure you store any backup secret keys off the
+#  computing platform and in a secure physical location."
+# Ref.: https://newbedev.com/how-to-export-a-gpg-private-key-and-public-key-to-a-file
+gpg --output backupkeys.pgp --armor --export-secret-keys --export-options export-backup user@email
