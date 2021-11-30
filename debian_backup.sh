@@ -22,9 +22,8 @@ for dir in etc keys; do
         --directory=/ \
         $dir/
 done
-)
 
 # More examples in /etc/cron.daily/sys_backup
 
-aptitude -F "%p %v" search "~i ?not(~M)" | sort >> $(hostname).manual.packages.$(date +%Y%m%d%H%M%S).list && \
-aptitude -F "%p %v" search "~M"  | sort >> $(hostname).auto.packages.$(date +%Y%m%d%H%M%S).list
+aptitude -F "%p %v" search "~i ?not(~M)" | sort >> "$(hostname).manual.packages.$(date +%Y%m%d%H%M%S).list" && \
+aptitude -F "%p %v" search "~M"  | sort >> "$(hostname).auto.packages.$(date +%Y%m%d%H%M%S).list"
