@@ -9,7 +9,7 @@ exit # do not run any commands when file is executed
 #
 
 ################################################################################
-# Dovecot on Debian 8 (Jessie), Debian 9 (Stretch) and Debian 10 (Buster)
+# Dovecot on Debian 8 (Jessie), Debian 9 (Stretch), Debian 10 (Buster) and Debian 11 (Bullseye)
 # Ref.:
 #  /usr/share/doc/dovecot-core/README.Debian.gz
 #  https://wiki2.dovecot.org/AuthDatabase/SQL
@@ -29,7 +29,7 @@ sed -i -e "s/@emailAddress@/root@$(hostname --fqdn)/g" dovecot-openssl.cnf
 
 cat << EOF >> /etc/dovecot/local.conf
 # Dovecot configuration file
-# 2011-2020 Jakob Meng, <jakobmeng@web.de>
+# 2011-2021 Jakob Meng, <jakobmeng@web.de>
 
 # Enable mail group temporarily for privileged operations. This is used with the INBOX when either its initial creation
 # or dotlocking fails. Typically, this is set to mail to give access to /var/mail. Without this, errors will be raised
@@ -116,7 +116,43 @@ auth_mechanisms = plain cram-md5
 EOF
 
 ####################
-# (Optional) MySQL/MariaDB Backend
+# (Optional) Authentication via Passwd-file
+# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+
+cat << 'EOF' >> /etc/dovecot/local.conf
+# Authentication via Passwd-file
+# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+
+userdb {
+  driver = passwd-file
+  args = username_format=%n /etc/dovecot/passwd
+}
+
+passdb {
+  driver = passwd-file
+  args = username_format=%n /etc/dovecot/passwd
+}
+EOF
+
+# Generate password hash with doveadm
+# Ref.: https://doc.dovecot.org/configuration_manual/authentication/password_schemes/#authentication-password-schemes
+doveadm pw -s SHA512-CRYPT
+
+# Create passwd file with username and password hash
+# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+cat << 'EOF' >> /etc/dovecot/passwd
+user:{plain}secret:1000:1000:,,,:/home/user:/usr/sbin/nologin
+EOF
+
+chown root.dovecot /etc/dovecot/passwd
+chmod u=rw,g=r,o= /etc/dovecot/passwd
+
+systemctl restart dovecot.service
+systemctl status dovecot.service
+
+####################
+# (Optional) Authentication via MySQL / MariaDB
+# Ref.: https://doc.dovecot.org/configuration_manual/authentication/sql/
 apt-get install dovecot-mysql
 
 cat << 'EOF' >> /etc/dovecot/local.conf
@@ -299,8 +335,9 @@ iterate_query = SELECT userid AS username, domain FROM users
 
 EOF
 chown root.dovecot /etc/dovecot/local-mysql.conf.ext
-chmod a-rwx,u+rw,g+r /etc/dovecot/local-mysql.conf.ext
+chmod u=rw,g=r,o= /etc/dovecot/local-mysql.conf.ext
 
-service dovecot restart
+systemctl restart dovecot.service
+systemctl status dovecot.service
 
 ################################################################################
