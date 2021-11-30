@@ -193,3 +193,6 @@ EOF
 chmod a+x /etc/cron.daily/detect_config_changes
 
 exit
+
+# Simulate installing updates
+unattended-upgrades --dry-run --debug --verbose
