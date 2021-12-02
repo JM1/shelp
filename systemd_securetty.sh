@@ -14,16 +14,24 @@ exit # do not run any commands when file is executed
 # https://unix.stackexchange.com/questions/552576/allow-passwordless-root-login-on-the-serial-console
 # https://wiki.archlinux.org/title/Automatic_login_to_virtual_console
 # https://blog.oddbit.com/post/2020-02-24-a-passwordless-serial-console/
+# https://manpages.debian.org/bullseye/libpam-modules/pam_rootok.8.en.html
+# https://manpages.debian.org/bullseye/libpam-modules/pam_securetty.8.en.html
+# https://manpages.debian.org/bullseye/libpam-runtime/pam.conf.5.en.html
+
+dash # bash interprets tabs which causes problems
 
 # Create pam config for pam_securetty.so
-cat << 'EOF' >> /usr/share/pam-configs/securetty
+cat << 'EOF' > /usr/share/pam-configs/securetty
 Name: Enable pam_securetty.so
 Default: no
 Priority: 512
 Auth-Type: Primary
 Auth:
-	sufficient	pam_securetty.so
+	[success=ok auth_err=1]	pam_rootok.so
+	[success=done default=ignore]	pam_securetty.so noconsole
 EOF
+
+exit
 
 # Enable pam config for pam_securetty.so
 pam-auth-update --enable securetty
