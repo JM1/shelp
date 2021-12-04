@@ -18,3 +18,12 @@ sgdisk -G /dev/disk/by-id/TARGET_DEVICE
 # Sort partition numbers, e.g. because Debian Installer assigns
 # partition numbers in order of creation during install.
 sgdisk --sort /dev/disk/by-id/DEVICE
+
+# Wipe GPT and MBR data structures
+sgdisk --zap-all /dev/disk/by-id/DEVICE
+
+# Clear partition data, i.e. GPT header data, partition definitions and the protective MBR
+sgdisk --clear /dev/disk/by-id/DEVICE
+
+# Create new partition
+sgdisk --set-alignment=4096 --new=0:0:0 /dev/disk/by-id/DEVICE
