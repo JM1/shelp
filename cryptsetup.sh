@@ -7,9 +7,10 @@ exit # do not run any commands when file is executed
 #
 # cryptsetup
 #
-# References:
-#  /usr/share/doc/cryptsetup/README.gnupg
-#  /usr/share/doc/cryptsetup-run/README.gnupg
+# Ref.:
+# /usr/share/doc/cryptsetup/README.gnupg
+# /usr/share/doc/cryptsetup-run/README.gnupg
+# https://wiki.archlinux.org/title/Dm-crypt/Device_encryption
 
 if [ -e /keys/KEYFILE ]; then mv -i /keys/KEYFILE /keys/KEYFILE.old; fi
 dd if=/dev/random of=/keys/KEYFILE bs=1 count=256
@@ -19,10 +20,25 @@ dd if=/dev/random bs=1 count=256 | gpg --no-options --no-random-seed-file \
  --no-default-keyring --keyring /dev/null --secret-keyring /dev/null \
  --trustdb-name /dev/null --symmetric --output /keys/KEYFILE.gpg
 
-# use gnupg passphrase to decrypt key required for luksAddKey
+# Use gnupg passphrase to decrypt key required for luksAddKey
 /lib/cryptsetup/scripts/decrypt_gnupg /keys/KEYFILE.gpg > /keys/KEYFILE 
 
-cryptsetup --align-payload=8192 -v -c aes-xts-plain64 -s 512 -h sha512 luksFormat /dev/disk/by-id/DEVICE
+# Print compiled-in defaults
+cryptsetup --help
+
+# Create paranoid LUKS2 container
+cryptsetup --type luks2 --align-payload=8192 -v -c aes-xts-plain64 -s 512 -h sha512 luksFormat /dev/disk/by-id/DEVICE
+
+# Create LUKS2 container with 4K sector size
+#
+# Possible drawbacks:
+# "(1) Compatibility with old kernels and cryptsetup versions. The 4K encryption sector support is still fairly new,
+#      after all.
+#  (2) It's not guaranteed safe on disks with 512-byte sectors, as it can break atomicity guarantees that might be
+#      assumed by software. I don't believe this is a problem on modern disks or flash storage, nor on ext4 or f2fs.
+#      But the cryptsetup default needs to be more conservative."
+# Ref.: https://wiki.archlinux.org/title/Dm-crypt/Device_encryption
+cryptsetup luksFormat --sector-size 4096 /dev/disk/by-id/DEVICE
 
 cryptsetup luksAddKey /dev/disk/by-id/DEVICE # passphrase
 cryptsetup luksAddKey /dev/disk/by-id/DEVICE /keys/KEYFILE
