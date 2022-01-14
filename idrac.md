@@ -64,3 +64,7 @@ For example, use SSH to apply this workaround and reboot iDRAC:
 ssh root@fqdn racadm set idrac.webserver.HostHeaderCheck Disabled
 ssh root@fqdn racadm racreset soft
 ```
+
+### iDRAC web interface shows an empty server summary and many `undefined` labels after a firmware upgrade
+
+[Press <kbd>CTRL</kbd>+<kbd>F5</kbd> in Firefox to clear cached files and reload the page.](https://www.dell.com/community/Systems-Management-General/iDRAC8-summary-page-empty-after-FW-Update-to-V2-30-30-30/td-p/4750872)
