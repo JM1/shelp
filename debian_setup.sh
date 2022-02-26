@@ -240,6 +240,7 @@ apt-get install \
  screen \
  ssh \
  time \
+ tmux \
  vim
 
 # fzf requires Debian 10 (Buster) and later
