@@ -21,10 +21,10 @@ apt update && apt install iperf3
 # OpenWrt
 opkg update && opkg install iperf3
 
-# CentOS/Red Hat Enterprise Linux
+# CentOS/Red Hat Enterprise Linux 7
 yum install iperf3
 
-# Fedora
+# CentOS/Red Hat Enterprise Linux 8 or Fedora
 dnf install iperf3
 
 # Run iPerf3 client and server
