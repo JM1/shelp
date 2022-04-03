@@ -235,8 +235,10 @@ apt-get install \
  fzf \
  keyboard-configuration \
  kmod \
+ less \
  libcap2-bin \
  man-db \
+ procps \
  screen \
  ssh \
  time \
