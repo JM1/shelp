@@ -91,6 +91,9 @@ ssl_key = </etc/dovecot/private/dovecot.key
 #verbose_ssl = yes
 EOF
 
+# Disable PAM authentication
+sed -i -e 's/^\!include auth-system\.conf\.ext/#\!include auth-system\.conf\.ext/g' /etc/dovecot/conf.d/10-auth.conf
+
 chown root.dovecot /etc/dovecot/local.conf
 chmod a-rwx,u+rw,g+r /etc/dovecot/local.conf
 service dovecot restart
@@ -125,14 +128,16 @@ cat << 'EOF' >> /etc/dovecot/local.conf
 
 userdb {
   driver = passwd-file
-  args = username_format=%n /etc/dovecot/passwd
+  args = username_format=%n /etc/dovecot/users
 }
 
 passdb {
   driver = passwd-file
-  args = username_format=%n /etc/dovecot/passwd
+  args = username_format=%n /etc/dovecot/users
 }
 EOF
+# or on Debian 10 (Buster)
+sed -i -e 's/^#\!include auth-passwdfile\.conf\.ext/\!include auth-passwdfile\.conf\.ext/g' conf.d/10-auth.conf
 
 # Generate password hash with doveadm
 # Ref.: https://doc.dovecot.org/configuration_manual/authentication/password_schemes/#authentication-password-schemes
@@ -140,12 +145,12 @@ doveadm pw -s SHA512-CRYPT
 
 # Create passwd file with username and password hash
 # Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
-cat << 'EOF' >> /etc/dovecot/passwd
+cat << 'EOF' >> /etc/dovecot/users
 user:{plain}secret:1000:1000:,,,:/home/user:/usr/sbin/nologin
 EOF
 
-chown root.dovecot /etc/dovecot/passwd
-chmod u=rw,g=r,o= /etc/dovecot/passwd
+chown root.dovecot /etc/dovecot/users
+chmod u=rw,g=r,o= /etc/dovecot/users
 
 systemctl restart dovecot.service
 systemctl status dovecot.service
