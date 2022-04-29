@@ -10,7 +10,7 @@ exit # do not run any commands when file is executed
 
 # backup files and compare to existing systems
 for dir in etc keys; do
-    [ -d $dir/ ] && tar \
+    [ -d /$dir/ ] && tar \
         --create \
         --verbose \
         --preserve-permissions --acls --xattrs --selinux \
