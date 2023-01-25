@@ -30,3 +30,9 @@ tune2fs -L MY_NEW_LABEL /dev/disk/by-id/DEVICE
 
 # set time the filesystem was last checked
 tune2fs -T 20000101 /dev/disk/by-id/DEVICE
+
+# turn on 64bit feature for devices >=16TB
+resize2fs -b /dev/disk/by-id/DEVICE
+
+# resize
+resize2fs /dev/disk/by-id/DEVICE

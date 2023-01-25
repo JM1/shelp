@@ -43,6 +43,11 @@ btrfs scrub status /MOUNT_PATH
 btrfs scrub start /MOUNT_PATH
 btrfs scrub cancel /MOUNT_PATH
 
+# change uuid
+# Ref.: https://unix.stackexchange.com/a/246981/188542
+btrfs check --readonly /dev/disk/by-id/DEVICE
+btrfstune -u /dev/disk/by-id/DEVICE
+
 ####################
 # Convert non-raid filesystem to 2-device raid1
 # Ref.: https://btrfs.wiki.kernel.org/index.php/Using_Btrfs_with_Multiple_Devices#Conversion

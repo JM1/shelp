@@ -77,11 +77,18 @@ fi
 #  https://d.sb/2016/11/gpg-inappropriate-ioctl-for-device-errors
 export GPG_TTY=$(tty)
 
-dd if=/dev/random bs=1 count=256 | gpg --no-options --no-random-seed-file \
+# ascii key, e.g. suitable for unlocking via ssh
+LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 256 > /keys/$KEYNAME.key
+cat /keys/$KEYNAME.key | gpg --no-options --no-random-seed-file \
  --no-default-keyring --keyring /dev/null --secret-keyring /dev/null \
  --trustdb-name /dev/null --symmetric --output /keys/$KEYNAME.key.gpg
 
+# binary key
+dd if=/dev/random bs=1 count=256 | gpg --no-options --no-random-seed-file \
+ --no-default-keyring --keyring /dev/null --secret-keyring /dev/null \
+ --trustdb-name /dev/null --symmetric --output /keys/$KEYNAME.key.gpg
 /lib/cryptsetup/scripts/decrypt_gnupg /keys/$KEYNAME.key.gpg > /keys/$KEYNAME.key
+
 chmod u-w,g-r,o-r /keys/*
 cryptsetup luksAddKey /dev/disk/by-id/... /keys/$KEYNAME.key
 

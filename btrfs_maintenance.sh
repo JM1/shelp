@@ -69,7 +69,9 @@ TimeoutStopSec=infinity
 EOF
 systemctl daemon-reload
 
-systemctl restart btrfsmaintenance-refresh.service
-systemctl enable btrfsmaintenance-refresh.service
 systemctl enable btrfs-balance.timer
 systemctl enable btrfs-scrub.timer
+
+# Only Debian 10 (Buster) and earlier
+systemctl restart btrfsmaintenance-refresh.service
+systemctl enable btrfsmaintenance-refresh.service

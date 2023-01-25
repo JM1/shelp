@@ -51,6 +51,12 @@ cryptsetup luksDump /dev/disk/by-id/DEVICE | grep UUID
 # Resize to size of the underlying block device
 cryptsetup resize NAME_crypt
 
+# Show UUID
+cryptsetup luksUUID /dev/disk/by-id/DEVICE
+
+# Change UUID
+cryptsetup luksUUID --uuid $(uuidgen) /dev/disk/by-id/DEVICE
+
 # Erase all keyslots and make the LUKS container permanently inaccessible.
 cryptsetup luksErase /dev/disk/by-id/DEVICE 
 

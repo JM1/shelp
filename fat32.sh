@@ -25,6 +25,14 @@ fatresize -s SIZE /dev/disk/by-id/DEVICE
 # or
 fatresize -s max /dev/disk/by-id/DEVICE
 
+# assign random serial number
+# Ref.: man mlabel
+mlabel -i /dev/disk/by-id/DEVICE -n
+
+# print label
+# Ref.: man mlabel
+mlabel -i /dev/disk/by-id/DEVICE -s
+
 ####################
 # rename fat32 device (requires mlabel from mtools package)
 mlabel -i /dev/disk/by-id/DEVICE -s ::
