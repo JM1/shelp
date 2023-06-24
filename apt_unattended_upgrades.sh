@@ -174,6 +174,14 @@ EOF
 sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/\/\/Unattended-Upgrade::Automatic-Reboot "false";\n'\
 'Unattended-Upgrade::Automatic-Reboot "true";/g' /etc/apt/apt.conf.d/50unattended-upgrades
 
+# (Optional) Do not reboot automatically if there are users currently logged in
+sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot-WithUsers "true";/\/\/Unattended-Upgrade::Automatic-Reboot-WithUsers "true";\n'\
+'Unattended-Upgrade::Automatic-Reboot-WithUsers "false";/g' /etc/apt/apt.conf.d/50unattended-upgrades
+
+# (Optional) Reboot at the specific time instead of immediately
+sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot-Time "02:00";/\/\/Unattended-Upgrade::Automatic-Reboot-Time "02:00";\n'\
+'Unattended-Upgrade::Automatic-Reboot-Time "05:00";/g'  /etc/apt/apt.conf.d/50unattended-upgrades
+
 # Follow apt_cache_cleanup.sh to cleanup package cache intervals periodically
 
 systemctl restart unattended-upgrades.service
