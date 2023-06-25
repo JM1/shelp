@@ -2,7 +2,7 @@
 # vim:set syntax=sh:
 # kate: syntax bash;
 # SPDX-License-Identifier: CC-BY-SA-4.0
-# Copyright 2021 Jakob Meng, <jakobmeng@web.de>
+# Copyright 2021-2023 Jakob Meng, <jakobmeng@web.de>
 exit # do not run any commands when file is executed
 #
 # System Audit
@@ -22,18 +22,17 @@ systemctl list-units
 systemctl list-unit-files | grep -v masked | grep -v static | grep -v disabled | grep -v indirect | grep -v generated
 
 # look for unexplained files
-cruft \
-  --ignore /.bootbackup \
-  --ignore /.snapshots \
-  --ignore /opt \
-  --ignore /home \
-  --ignore /root \
-  --ignore /var/www/nextcloud \
-  --ignore /vm \
-  --ignore /windows \
-  --ignore /backups \
-  --ignore /multimedia \
-  -r /tmp/$(hostname)_cruft_report_$(date +%Y%m%d)
+apt-get install -y cruft-ng
+cat << 'EOF' >> /etc/cruft/ignore
+# 2023 Jakob Meng, <jakobmeng@web.de>
+/.snapshots
+/opt
+/home
+/root
+/var/lib
+/var/www
+EOF
+cruft-ng > /tmp/$(hostname)_cruft_report_$(date +%Y%m%d)
 
 (
 cd /
