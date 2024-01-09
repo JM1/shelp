@@ -9,12 +9,12 @@ commands you ran in a shell and add comments sporadically. It will help to remem
 did so. It might also be useful as a blueprint for automation e.g. with Ansible. Your older self and your fellows will
 appreciate it.
 
-This repository has instructions on how to install [Debian](debian_setup.sh) and [Gentoo Prefix](gentoo_prefix.sh),
-host [Nextcloud](nextcloud_setup.sh) and [Gitea](gitea.sh), configure [Apache2](apache_setup.sh) and
-[Dovecot](dovecot.sh), create [SSL certificates](openssl_ca_guide.sh), use a [YubiKey](yubikey.sh) with
-[OpenVPN](openvpn.sh), benchmark using/with [FIO](fio.sh), define [libvirt domains](libvirt.sh), configure [Open vSwitch
-bridges and OpenFlow tables](ovs.md), use [DPDK](dpdk.md) and much more. The guide below shows how to access these
-notes from a cli and how to add your own.
+This repository has instructions on how to install [Debian](debian_setup.sh),  [Gentoo Prefix](gentoo_prefix.sh) and
+[OpenShift](openshift.md), host [Nextcloud](nextcloud_setup.sh) and [Gitea](gitea.sh), configure [Apache2](
+apache_setup.sh) and [Dovecot](dovecot.sh), create [SSL certificates](openssl_ca_guide.sh), use a [YubiKey](yubikey.sh)
+with [OpenVPN](openvpn.sh), benchmark using/with [FIO](fio.sh), define [libvirt domains](libvirt.sh), configure [Open
+vSwitch bridges and OpenFlow tables](ovs.md), use [DPDK](dpdk.md) and much more. The guide below shows how to access
+these notes from a cli and how to add your own.
 
 ⚠️ **WARNING:** This repository resembles more of a personal sketchpad than a collection of complete guides. Most
 documents belong to one of two categories, either annotated lists of commands and their arguments, e.g. for
