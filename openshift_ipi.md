@@ -87,6 +87,25 @@ Or:
 openshift_ipi_release_image: 'registry.ci.openshift.org/ocp/release:4.14'
 ```
 
+## Configure NTP servers
+
+When your corporate network blocks access to public NTP servers edit Ansible variable `chrony_config` for host
+`lvrt-lcl-session-srv-400-okd-ipi-router` in file `inventory/host_vars/lvrt-lcl-session-srv-400-okd-ipi-router.yml`.
+For example, suppose your internal NTP servers are grouped in a pool `clock.company.com`, change `chrony_config` to:
+
+```yml
+chrony_config:
+- ansible.builtin.copy:
+    content: |
+      allow 192.168.158.0/24
+      # Corporate network blocks all NTP traffic except to internal NTP servers.
+      pool clock.company.com iburst
+    dest: /etc/chrony/conf.d/home.arpa.conf
+    mode: u=rw,g=r,o=
+    group: root
+    owner: root
+```
+
 ## Start Podman containers
 
 Create Podman networks, volumes and containers, and attach to a container named `cloudy` with:
