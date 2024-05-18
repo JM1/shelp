@@ -15,6 +15,8 @@ What you need:
   + `Raspberry Pi 3 Model B`
   + `Raspberry Pi 3 Model B+`
   + `Raspberry Pi 4 Model B`
+  + `Raspberry Pi 400`
+  + `Raspberry Pi 5`
 * [High-quality power supply](https://www.raspberrypi.org/products/)
 * [`SD card` or `Micro SD card`](https://www.raspberrypi.org/documentation/installation/sd-cards.md)
   (depending on Raspberry Pi model) with a minimum size of `4GB`
@@ -30,67 +32,74 @@ Other Raspberry Pi's, such as `Raspberry Pi Zero`, might also be compatible to D
 extra configuration steps due to missing ethernet or wifi interfaces.
 
 One single core systems, such as `Raspberry Pi Zero`, `Raspberry Pi 1 Model B` and `Raspberry Pi 1 Model B+`,
-performance is probably better on native Pi-hole installs, without Docker's multi-tasking.
+performance might be better on native Pi-hole installs, without Docker's multi-tasking.
 
 ## Raspberry Pi Setup
 
+**NOTE:** Script [rpi_pi-hole_assembler.sh](rpi_pi-hole_assembler.sh) automates most of steps in this chapter: It
+downloads and prepares a Raspberry PI OS image with Docker Pi-hole. Simply edit the script in your favorite editor and
+customize all configuration settings marked with `TODO`. Afterwards run it and flash the resulting image to a (Micro) SD
+card, e.g. using [`Raspberry Pi Imager`](https://www.raspberrypi.org/documentation/installation/). Finally, jump to the
+[Router Setup](#router-setup) chapter.
+
 First download and extract [`Raspberry Pi OS Lite`](https://www.raspberrypi.org/software/operating-systems/), then flash
 it to the (Micro) SD card using e.g. [`Raspberry Pi Imager`](https://www.raspberrypi.org/documentation/installation/).
-This guide was tested with `Raspberry Pi OS Lite` which was released on `March 4th 2021` with Kernel version `5.10`.
+This guide was tested with `Raspberry Pi OS Lite` which was released on `March 15th 2024` and is based on Debian 12
+(Bookworm).
 
 Next step is to perform the network setup of Raspberry Pi. For an interactive setup (requires display and keyboard)
 plug the SD card into the Raspberry Pi, power on the system and follow the official guides to configure a static (!)
-ip address for [ethernet](https://www.raspberrypi.org/documentation/configuration/tcpip/) or
-[wifi](https://www.raspberrypi.org/documentation/configuration/wireless/desktop.md).
+ip address for [ethernet](https://www.raspberrypi.com/documentation/computers/configuration.html#configuring-networking)
+or [wifi](https://www.raspberrypi.com/documentation/computers/getting-started.html#wi-fi).
 
 For a headless setup of the network, plug the SD card into the host OS, mount the second partition (`rootfs`) of the
-SD card and edit the files for
-[ethernet (`/etc/dhcpcd.conf`)](https://www.raspberrypi.org/documentation/configuration/tcpip/) or
-[wifi (much harder!)](https://www.raspberrypi.org/documentation/configuration/wireless/wireless-cli.md) directly.
-For example, to set static IPv4 and IPv6 addresses for Raspberry Pi's ethernet port append these lines to
-`/etc/dhcpcd.conf`:
+SD card and edit the files for [ethernet](
+https://www.raspberrypi.com/documentation/computers/configuration.html#configuring-networking) or [wifi](
+https://www.raspberrypi.com/documentation/computers/configuration.html#wireless-networking-command-line) directly.
+For example, to set static IPv4 and IPv6 addresses for Raspberry Pi's ethernet port create a new file
+`/etc/NetworkManager/system-connections/first.nmconnection`:
 ```
-# linux device name of Raspberry Pi's ethernet port
-interface eth0
-
-# IPv4 address of Raspberry Pi's ethernet port
-static ip_address=192.168.0.2/24
-
-# IPv6 unique local address (ULA) of Raspberry Pi's ethernet port
+# 2024 Jakob Meng, <jakobmeng@web.de>
 #
-# The ip6_address can (but does not have to) be dropped
-# if IPv6 is available or used on the local network.
+# Network configuration
 #
-# Ensure that the first 64 bits (fd00:0000:0000:0000 in the following
-# example) do match the IPv6 ULA of your router. See section on router
-# setup about how to retrieve the IPv6 ULA of your router.
+# This example assigns a static ip address, similar to
+# $> nmcli con add con-name "first" ifname eth0 type ethernet ip4 192.168.0.2/16 gw4 192.168.0.1
+# $> nmcli con mod "first" ipv4.dns "1.1.1.1"
+# $> nmcli con mod "first" ipv6.address "fd00::192:168:0:2/128"
+# $> nmcli con mod "first" ipv6.dns "2606:4700:4700::1111"
+# $> nmcli con up "first"
 #
-# Ref.: https://en.wikipedia.org/wiki/Unique_local_address
-static ip6_address=fd00::3141:5926:5358:9793/64
-# is equal to
-#static ip6_address=fd00:0000:0000:0000:3141:5926:5358:9793/64
+# Ref.: https://www.networkmanager.dev/docs/api/latest/nm-settings-nmcli.html
+[connection]
+id=first
+type=ethernet
+interface-name=eth0
 
-# IPv4 address of your router
-static routers=192.168.0.1
+[ethernet]
 
-# Cloudflare DNS resolvers
-# Ref.: https://cloudflare-dns.com/de-DE/dns/
-#
-# NOTE: Do NOT enter your router's ip address here because this would cause a DNS
-#       loop when Pi-hole gets assigned as the DNS server to your router later!
-static domain_name_servers=1.1.1.1 2606:4700:4700::64
+[ipv4]
+address1=192.168.0.2/16,192.168.0.1
+dns=1.1.1.1;
+method=manual
+
+[ipv6]
+addr-gen-mode=default
+address1=fd00::192:168:0:2/128
+dns=2606:4700:4700::1111;
+method=auto
 ```
 
-[Enable remote access using SSH](https://www.raspberrypi.org/documentation/remote-access/ssh/). For a headless setup,
-plug the SD card into the host OS, mount the first partition (`boot`) of the SD card, `cd` into the mounted directory
-and `touch ssh` (`sshswitch.service` will then enable SSH and remove this file on the next boot).
+[Enable remote access using SSH](https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh). For a
+headless setup, plug the SD card into the host OS, mount the first partition (`boot`) of the SD card, `cd` into the
+mounted directory and `touch ssh` (`sshswitch.service` will then enable SSH and remove this file on the next boot).
 
 [Check for existing SSH keys](https://docs.github.com/en/github/authenticating-to-github/checking-for-existing-ssh-keys)
 and [if you do not already have an SSH key then generate a new SSH key and add it to `ssh-agent`](
 https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
 
 Plug the SD card into the Raspberry Pi, power on the system and login with [SSH](
-https://www.raspberrypi.org/documentation/remote-access/ssh/).
+https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh).
 The default username is `pi` with password `raspberry`.
 
 [Copy your SSH public key to the Raspberry Pi](
@@ -99,65 +108,53 @@ https://wiki.archlinux.org/index.php/SSH_Keys#Copying_the_public_key_to_the_remo
 The following steps will all be executed via SSH on the Raspberry Pi:
 
 ```sh
-# get root
+# Become root.
 sudo -s
 
-# disable logins except ssh (optional)
-passwd -l pi
+# Disable logins except ssh (optional).
+passwd --lock pi
 
-# disable password authentication for ssh logins
+# Disable password authentication for SSH logins.
 #
 # NOTE: Ensure SSH public key authentication works before disable password authentication!
 #
-sed -i -e 's/#PasswordAuthentication yes/#PasswordAuthentication yes\nPasswordAuthentication no/g' /etc/ssh/sshd_config
+cat << 'EOF' > "/etc/ssh/sshd_config.d/99-disable-password-authentication.conf"
+# 2024 Jakob Meng, <jakobmeng@web.de>
+PasswordAuthentication no
+EOF
 
-# restart ssh to apply changes
+# Restart ssh to apply changes.
 systemctl restart ssh.service
 
-# disable bluetooth and wifi (optional)
+# Disable bluetooth and wifi (optional)
 # NOTE: Do not block wifi if you are using wifi instead of ethernet!
 rfkill block all
 # or
-rfkill block bluetooth
+#rfkill block bluetooth
 
-# disable swap to reduce sd card wear and increase its lifespan (optional)
+# Disable swap to reduce sd card wear and increase its lifespan (optional)
 apt-get remove -y dphys-swapfile
 
-# upgrade all installed packages
+# Disable persistent logging in journald to reduce sd card wear and increase its lifespan (optional)
+# Ref.: /usr/share/doc/systemd/README.Debian.gz
+rm -rf "/var/log/journal"
+
+# Upgrade all installed packages
 apt-get update
 apt-get upgrade -y
 apt-get dist-upgrade -y
 
-# install tools
+# Install tools
 apt-get install -y vim screen aptitude fzf git curl
 
-# install Docker runtime and Docker Compose
-#
-# Raspberry Pi's with ARM1176JZF-S cores such as Raspberry Pi Zero and Raspberry Pi 1 Model B(+) require containerd 1.5
-# or newer because of a bug in older versions which causes Docker to erroneously pull images for ARMv7 CPUs instead of
-# ARMv6 CPUs. All releases of Raspberry Pi OS are affected including the latest release based on Debian 11 (Bullseye).
-# A fixed version of containerd will first be released with the next Raspberry Pi OS based on Debian 12 (Bookworm).
-# As a workaround for affected systems, containerd packages will be installed from Docker Inc.'s upstream repositories
-# instead of Raspberry Pi OS's repositories.
-# Ref.: https://github.com/pi-hole/docker-pi-hole/issues/245
-if [ "$(cut -d. -f1 /etc/debian_version)" -le 11 ] && \
-   [ "$(awk '/model name/{ print(tolower($4)) }' /proc/cpuinfo)" = "armv6-compatible" ]; then
-    # install Docker from Docker's repositories
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sh get-docker.sh
-    apt-get install -y docker-compose
-else
-    # install Docker from Raspberry Pi OS repositories
-    apt-get install -y docker.io docker-compose
-fi
+# Install Docker runtime and Docker Compose
+apt-get install -y docker.io docker-compose
 
-# add user pi to group docker to allow us to run docker containers
-adduser pi docker
-
-# change hostname (optional) using your favorite editor, e.g. Vim
+# Change hostname using your favorite editor, e.g. Vim (optional)
 vi /etc/hostname
 vi /etc/hosts
 
+# Reboot to apply changes
 reboot
 ```
 
@@ -171,9 +168,10 @@ If you do not want to enable unattended upgrades, skip the next paragraph.
 :warning:
 
 ```sh
-# get root
+# Become root.
 sudo -s
 
+# Set up unattended upgrades
 apt-get install -y unattended-upgrades
 
 # Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
@@ -182,13 +180,14 @@ cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20aut
 # package updates because debconf will not complain about config changes
 dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# enable service which delays shutdown or reboots during upgrades
+# Enable service which delays shutdown or reboots during upgrades
 systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
 
-# reboot after updates if required to apply changes
+# Reboot after updates if required to apply changes
 sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
     /etc/apt/apt.conf.d/50unattended-upgrades
 
+# Reboot to apply changes
 reboot
 ```
 
@@ -196,21 +195,26 @@ Next we will setup [Pi-hole](https://pi-hole.net/) using
 [Pi-hole's Docker image](https://github.com/pi-hole/docker-pi-hole/#running-pi-hole-docker).
 [Docker Compose](https://docs.docker.com/compose/) will be used to manage the Docker containers.
 
-Login to Raspberry Pi via SSH after system has rebooted. Create a config file `docker-compose.yml` for Docker Compose:
+Login to Raspberry Pi via SSH after system has rebooted. Create a config file `docker-compose.yml` in a new folder
+`/opt/pihole` for Docker Compose:
 
 ```sh
-# go to home directory
-cd
+# Become root.
+sudo -s
 
-# create a new config Docker Compose using your favorite editor, e.g. Vim
-vi docker-compose.yml
+# Prepare Docker Pi-hole.
+mkdir -p "/opt/pihole"
+
+# Create a new config Docker Compose using your favorite editor, e.g. Vim
+vi "/opt/pihole/docker-compose.yml"
 ```
 
 Docker Pi-hole provides an example config file for Docker Compose (without Watchtower) that could be used as a start
-([`docker-compose.yml.example`](https://github.com/pi-hole/docker-pi-hole/blob/master/docker-compose.yml.example)).
+([`docker-compose.yml.example`](
+https://github.com/pi-hole/docker-pi-hole/blob/master/examples/docker-compose.yml.example)).
 
 The following `docker-compose.yml` example configures Docker Pi-hole with host networking mode to allow DHCP responses.
-See [Docker DHCP and Network Modes](https://docs.pi-hole.net/docker/DHCP/) for rationale and other networking modes.
+See [Docker DHCP and Network Modes](https://docs.pi-hole.net/docker/dhcp/) for rationale and other networking modes.
 [Watchtower](https://containrrr.dev/watchtower/) will be used to automate base image updates of Pi-hole's Docker
 container.
 
@@ -241,11 +245,11 @@ services:
       DNSSEC: 'true'
 
       # IPv4 address of Raspberry Pi
-      ServerIP: '192.168.0.2'
+      FTLCONF_LOCAL_IPV4: '192.168.0.2'
 
       # IPv6 address of Raspberry Pi
       # Mandatory to block IPv6 ads
-      ServerIPv6: 'fd00::3141:5926:5358:9793'
+      FTLCONF_LOCAL_IPV6: 'fd00::192:168:0:2'
 
       # Enable DHCP for IPv4? Only required if your router is not
       # (or cannot be) configured to announce Pi-hole as name server.
@@ -284,7 +288,7 @@ services:
       - NET_ADMIN
 
     # Autostart Docker Pi-hole at system boot
-    restart: always
+    restart: unless-stopped
 
   # Remove watchtower key and its contents if you do not want to enable Docker image updates
   watchtower:
@@ -304,21 +308,26 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
     # Autostart Watchtower at system boot
-    restart: always
+    restart: unless-stopped
 ```
 
 Now bring up all containers with:
 ```sh
-# run container in background
+# Become root.
+sudo -s
+
+cd "/opt/pihole"
+
+# Run container in background.
 docker-compose up -d
 
-# verify that all containers are up and running
+# Verify that all containers are up and running.
 docker ps
 
-# view output of Pi-hole container
+# View output of Pi-hole container.
 docker logs pihole
 
-# get web password
+# Get web password.
 # NOTE: Keep a backup of the web password because only the printed random password of the first run will be used
 #       and stored as web password within Pi-hole. On later runs the random passwords will be ignored.
 #       Ref.: https://github.com/pi-hole/docker-pi-hole/issues/781#issuecomment-775241580
