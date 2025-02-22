@@ -18,7 +18,7 @@ What you need:
   + `Raspberry Pi 400`
   + `Raspberry Pi 5`
 * [High-quality power supply](https://www.raspberrypi.org/products/)
-* [`SD card` or `Micro SD card`](https://www.raspberrypi.org/documentation/installation/sd-cards.md)
+* [`SD card` or `Micro SD card`](https://www.raspberrypi.com/documentation/accessories/sd-cards.html)
   (depending on Raspberry Pi model) with a minimum size of `4GB`
 * (Micro) SD card reader
 * Running Operating System (Linux preferably) which is used to setup Pi-hole on the Raspberry Pi
@@ -39,22 +39,24 @@ performance might be better on native Pi-hole installs, without Docker's multi-t
 **NOTE:** Script [rpi_pi-hole_assembler.sh](rpi_pi-hole_assembler.sh) automates most of steps in this chapter: It
 downloads and prepares a Raspberry PI OS image with Docker Pi-hole. Simply edit the script in your favorite editor and
 customize all configuration settings marked with `TODO`. Afterwards run it and flash the resulting image to a (Micro) SD
-card, e.g. using [`Raspberry Pi Imager`](https://www.raspberrypi.org/documentation/installation/). Finally, jump to the
+card, e.g. using [`Raspberry Pi Imager`](
+https://www.raspberrypi.com/documentation/computers/getting-started.html#raspberry-pi-imager). Finally, jump to the
 [Router Setup](#router-setup) chapter.
 
 First download and extract [`Raspberry Pi OS Lite`](https://www.raspberrypi.org/software/operating-systems/), then flash
-it to the (Micro) SD card using e.g. [`Raspberry Pi Imager`](https://www.raspberrypi.org/documentation/installation/).
-This guide was tested with `Raspberry Pi OS Lite` which was released on `March 15th 2024` and is based on Debian 12
+it to the (Micro) SD card using e.g. [`Raspberry Pi Imager`](
+https://www.raspberrypi.com/documentation/computers/getting-started.html#raspberry-pi-imager).
+This guide was tested with `Raspberry Pi OS Lite` which was released on `November 19th 2024` and is based on Debian 12
 (Bookworm).
 
 Next step is to perform the network setup of Raspberry Pi. For an interactive setup (requires display and keyboard)
 plug the SD card into the Raspberry Pi, power on the system and follow the official guides to configure a static (!)
-ip address for [ethernet](https://www.raspberrypi.com/documentation/computers/configuration.html#configuring-networking)
+ip address for [ethernet](https://www.raspberrypi.com/documentation/computers/configuration.html#networking)
 or [wifi](https://www.raspberrypi.com/documentation/computers/getting-started.html#wi-fi).
 
 For a headless setup of the network, plug the SD card into the host OS, mount the second partition (`rootfs`) of the
 SD card and edit the files for [ethernet](
-https://www.raspberrypi.com/documentation/computers/configuration.html#configuring-networking) or [wifi](
+https://www.raspberrypi.com/documentation/computers/configuration.html#networking) or [wifi](
 https://www.raspberrypi.com/documentation/computers/configuration.html#wireless-networking-command-line) directly.
 For example, to set static IPv4 and IPv6 addresses for Raspberry Pi's ethernet port create a new file
 `/etc/NetworkManager/system-connections/first.nmconnection`:
@@ -215,9 +217,8 @@ mkdir -p "/opt/pihole"
 vi "/opt/pihole/docker-compose.yml"
 ```
 
-Docker Pi-hole provides an example config file for Docker Compose (without Watchtower) that could be used as a start
-([`docker-compose.yml.example`](
-https://github.com/pi-hole/docker-pi-hole/blob/master/examples/docker-compose.yml.example)).
+Docker Pi-hole provides an [example config file for Docker Compose (without Watchtower)](
+https://github.com/pi-hole/docker-pi-hole/blob/master/README.md#quick-start) that might be used as a start.
 
 The following `docker-compose.yml` example configures Docker Pi-hole with host networking mode to allow DHCP responses.
 See [Docker DHCP and Network Modes](https://docs.pi-hole.net/docker/dhcp/) for rationale and other networking modes.
@@ -233,65 +234,73 @@ Compose file `docker-compose.yml`.
 :warning:
 
 ```yaml
-version: "3"
-
-# https://github.com/pi-hole/docker-pi-hole/blob/master/README.md
+# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
 
 services:
   pihole:
     container_name: pihole
     image: pihole/pihole:latest
-    network_mode: "host"
+
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+    #
+    # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
+    #network_mode: "host"
 
     # Pi-hole environment variables
     # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
     environment:
       TZ: 'Europe/Berlin'
-      # WEBPASSWORD: 'set a secure password here or it will be random'
-      DNSSEC: 'true'
+
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      #FTLCONF_webserver_api_password: 'correct horse battery staple'
+
+      FTLCONF_dns_dnssec: 'true'
+
+      # For Docker's default bridge, delete or comment out when using host networking mode
+      FTLCONF_dns_listeningMode: 'all'
 
       # IPv4 address of Raspberry Pi
-      FTLCONF_LOCAL_IPV4: '192.168.0.2'
+      #FTLCONF_dns_reply_host_force4: 'true'
+      #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
 
       # IPv6 address of Raspberry Pi
-      # Mandatory to block IPv6 ads
-      FTLCONF_LOCAL_IPV6: 'fd00::192:168:0:2'
+      #FTLCONF_dns_reply_host_force6: 'true'
+      #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
 
       # Enable DHCP for IPv4? Only required if your router is not
       # (or cannot be) configured to announce Pi-hole as name server.
       # See section on router setup below for more info.
-      #DHCP_ACTIVE: 'true'
-      #DHCP_START:  '192.168.0.101' # first IPv4 address used for DHCP
-      #DHCP_END:    '192.168.0.254' # last IPv4 address used for DHCP
-      #DHCP_ROUTER: '192.168.0.1'   # router ip, mandatory if DHCP server is enabled
-      #DHCP_LEASETIME: '64'
+      #FTLCONF_dhcp_active:    'true'
+      #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
+      #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
+      #FTLCONF_dhcp_router:    '192.168.0.1'   # router ip, mandatory if DHCP server is enabled
+      #FTLCONF_dhcp_leaseTime: '64'
 
       # DHCPv6 Rapid Commit
       # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
-      #DHCP_rapid_commit: 'true'
+      #FTLCONF_dhcp_rapidCommit: 'true'
 
       # Enable DHCPv6 for IPv6? Only required if your router is not
       # (or cannot be) configured to announce Pi-hole as name server.
       # See section on router setup below for more info.
-      #DHCP_IPv6: 'true'
-
-      # Increase time (in milliseconds) Pi-hole scripts in /etc/cont-finish.d can take before S6 sends a KILL signal,
-      # if Pi-hole's container fails to start with error messages like e.g.
-      #   s6-supervise pihole-FTL: warning: finish script lifetime reached maximum value - sending it a SIGKILL
-      #   s6-supervise cron: warning: finish script lifetime reached maximum value - sending it a SIGKILL
-      #S6_KILL_FINISH_MAXTIME: 30000
+      #FTLCONF_dhcp_ipv6: 'true'
 
     # Volumes store your data between container upgrades
     volumes:
       - './etc-pihole/:/etc/pihole/'
-      - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
-      # run `touch ./var-log/pihole.log` first unless you like errors
-      # - './var-log/pihole.log:/var/log/pihole.log'
 
-    # Recommended but not required (DHCP needs NET_ADMIN)
-    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
     cap_add:
+      # Required if you are using Pi-hole as your DHCP server, else not needed
+      # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       - NET_ADMIN
+      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+      - SYS_TIME
+      # Optional, if Pi-hole should get some more processing time
+      - SYS_NICE
 
     # Autostart Docker Pi-hole at system boot
     restart: unless-stopped
@@ -365,8 +374,8 @@ IPv4 address as `Preferred DNSv4 server` and `Alternative DNSv4 server`. On a ge
 
 At the time of writing Pi-hole's fritzbox guide does not cover the IPv6 setup. First ensure that IPv6 support has been
 configured on your fritzbox, e.g. follow the official AVM guides for IPv6 on FRITZ!Box 7590 [(DE)](
-https://avm.de/service/fritzbox/fritzbox-7590/wissensdatenbank/publication/show/573) / [(EN)](
-https://en.avm.de/service/fritzbox/fritzbox-7590/knowledge-base/publication/show/573).
+https://avm.de/service/wissensdatenbank/dok/FRITZ-Box-7590/573_IPv6-in-FRITZ-Box-einrichten/) / [(EN)](
+https://en.avm.de/service/knowledge-base/dok/FRITZ-Box-7590/573_Configuring-IPv6-in-the-FRITZ-Box/).
 
 Then navigate to `Home Network` :arrow_right: `Network` :arrow_right: `Network Settings` :arrow_right: `IP Adresses`
 :arrow_right: `IPv6 Configuration` :arrow_right: ` Unique Local Addresses`. Tick/enable option `Always assign unique

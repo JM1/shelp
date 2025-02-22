@@ -79,7 +79,7 @@ do
 done
 
 rpi_os=""
-rpi_os_default="https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2024-03-15/2024-03-15-raspios-bookworm-armhf-lite.img.xz"
+rpi_os_default="https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2024-11-19/2024-11-19-raspios-bookworm-armhf-lite.img.xz"
 
 while [ $# -ne 0 ]; do
     case "$1" in
@@ -357,65 +357,73 @@ mkdir -p "$rootmnt/opt/pihole"
 # from the Docker Compose config below.
 #
 cat << 'EOF' > "$rootmnt/opt/pihole/docker-compose.yml"
-version: "3"
-
-# https://github.com/pi-hole/docker-pi-hole/blob/master/README.md
+# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
 
 services:
   pihole:
     container_name: pihole
     image: pihole/pihole:latest
-    network_mode: "host"
+
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+    #
+    # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
+    #network_mode: "host"
 
     # Pi-hole environment variables
     # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
     environment:
       TZ: 'Europe/Berlin'
-      # WEBPASSWORD: 'set a secure password here or it will be random'
-      DNSSEC: 'true'
+
+      # Set a password to access the web interface. Not setting one will result in a random password being assigned
+      #FTLCONF_webserver_api_password: 'correct horse battery staple'
+
+      FTLCONF_dns_dnssec: 'true'
+
+      # For Docker's default bridge, delete or comment out when using host networking mode
+      FTLCONF_dns_listeningMode: 'all'
 
       # IPv4 address of Raspberry Pi
-      FTLCONF_LOCAL_IPV4: '192.168.0.2'
+      #FTLCONF_dns_reply_host_force4: 'true'
+      #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
 
       # IPv6 address of Raspberry Pi
-      # Mandatory to block IPv6 ads
-      FTLCONF_LOCAL_IPV6: 'fd00::192:168:0:2'
+      #FTLCONF_dns_reply_host_force6: 'true'
+      #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
 
       # Enable DHCP for IPv4? Only required if your router is not
       # (or cannot be) configured to announce Pi-hole as name server.
       # See section on router setup below for more info.
-      #DHCP_ACTIVE: 'false'
-      #DHCP_START: '192.168.0.101'
-      #DHCP_END: '192.168.0.254'
-      #DHCP_ROUTER: '192.168.0.1' # mandatory if DHCP server is enabled
-      #DHCP_LEASETIME: '24'
+      #FTLCONF_dhcp_active:    'true'
+      #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
+      #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
+      #FTLCONF_dhcp_router:    '192.168.0.1'   # router ip, mandatory if DHCP server is enabled
+      #FTLCONF_dhcp_leaseTime: '64'
 
       # DHCPv6 Rapid Commit
       # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
-      #DHCP_rapid_commit: 'true'
+      #FTLCONF_dhcp_rapidCommit: 'true'
 
       # Enable DHCPv6 for IPv6? Only required if your router is not
       # (or cannot be) configured to announce Pi-hole as name server.
       # See section on router setup below for more info.
-      #DHCP_IPv6: 'true'
-
-      # Increase time (in milliseconds) Pi-hole scripts in /etc/cont-finish.d can take before S6 sends a KILL signal,
-      # if Pi-hole's container fails to start with error messages like e.g.
-      #   s6-supervise pihole-FTL: warning: finish script lifetime reached maximum value - sending it a SIGKILL
-      #   s6-supervise cron: warning: finish script lifetime reached maximum value - sending it a SIGKILL
-      #S6_KILL_FINISH_MAXTIME: 30000
+      #FTLCONF_dhcp_ipv6: 'true'
 
     # Volumes store your data between container upgrades
     volumes:
       - './etc-pihole/:/etc/pihole/'
-      - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
-      # run `touch ./var-log/pihole.log` first unless you like errors
-      # - './var-log/pihole.log:/var/log/pihole.log'
 
-    # Recommended but not required (DHCP needs NET_ADMIN)
-    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
     cap_add:
+      # Required if you are using Pi-hole as your DHCP server, else not needed
+      # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       - NET_ADMIN
+      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+      - SYS_TIME
+      # Optional, if Pi-hole should get some more processing time
+      - SYS_NICE
 
     # Autostart Docker Pi-hole at system boot
     # Ref.: https://serverfault.com/a/649835/373320
