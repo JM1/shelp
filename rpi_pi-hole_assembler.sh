@@ -309,6 +309,12 @@ systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-
 sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
     /etc/apt/apt.conf.d/50unattended-upgrades
 
+# Upgrade all packages
+grep -q '^[[:space:]]*"origin=\*"' /etc/apt/apt.conf.d/50unattended-upgrades ||
+    sed -z -i -e 's/\nUnattended-Upgrade::Origins-Pattern {\n/'\
+'\nUnattended-Upgrade::Origins-Pattern {\n        "origin=\*";\n/g' \
+        /etc/apt/apt.conf.d/50unattended-upgrades
+
 touch /var/lib/bootstrapped
 
 # Reboot to apply changes
