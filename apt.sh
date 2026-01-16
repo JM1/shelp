@@ -29,7 +29,7 @@ apt-show-versions | grep 'No available version'
 ####################
 # List pending, old and obsolete configuration files
 
-find /etc -iname '*.ucftmp*' -o -iname '*.dpkg-*' -o -iname '*.ucf-*' -o -name '*.merge-error' | sort | uniq
+find /etc /usr -iname '*.ucftmp*' -o -iname '*.dpkg-*' -o -iname '*.ucf-*' -o -name '*.merge-error' | sort | uniq
 
 ####################
 # List all packages with rc status a.k.a. package removed but config files left

@@ -191,10 +191,10 @@ service unattended-upgrades restart
 # List pending, old and obsolete configuration files
 cat << 'EOF' > /etc/cron.daily/detect_config_changes
 #!/bin/sh
-# 2021 Jakob Meng, <jakobmeng@web.de>
+# 2021-2026 Jakob Meng, <jakobmeng@web.de>
 # List pending, old and obsolete configuration files
 
-find /etc -iname '*.ucftmp*' -o -iname '*.dpkg-*' -o -iname '*.ucf-*' -o -name '*.merge-error' | sort | uniq
+find /etc /usr -iname '*.ucftmp*' -o -iname '*.dpkg-*' -o -iname '*.ucf-*' -o -name '*.merge-error' | sort | uniq
 
 EOF
 
