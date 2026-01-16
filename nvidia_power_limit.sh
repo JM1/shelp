@@ -7,11 +7,32 @@ exit # do not run any commands when file is executed
 #
 # Enforce minimal power limit on NVIDIA graphic cards
 #
-# Ref.: 
+# Ref.:
 # https://wiki.archlinux.org/title/NVIDIA/Tips_and_tricks#Custom_TDP_Limit
 
 apt-get install nvidia-driver nvidia-smi libxml2-utils
 
+# NOTE: On Debian 12 (Bookworm) only
+cat << 'EOF' > /etc/systemd/system/nvidia-power-limit.service
+# 2021-2024 Jakob Meng, <jakobmeng@web.de>
+#
+# Enforce minimal power limit on NVIDIA graphic cards to decrease
+# temperatures and power consumption but also performance.
+# Ref.: https://wiki.archlinux.org/title/NVIDIA/Tips_and_tricks#Custom_TDP_Limit
+
+[Unit]
+Description=Enforce minimal power limit on NVIDIA graphic cards
+Wants=syslog.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "nvidia-smi -pl \"$(nvidia-smi -q -x | xmllint --xpath '/nvidia_smi_log/gpu/gpu_power_readings/min_power_limit/text()' - | awk '{ print $1 }')\""
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# NOTE: On Debian 11 (Bullseye) only
 cat << 'EOF' > /etc/systemd/system/nvidia-power-limit.service
 # 2021 Jakob Meng, <jakobmeng@web.de>
 #
@@ -35,6 +56,8 @@ systemctl daemon-reload
 systemctl enable --now nvidia-power-limit.service
 systemctl status nvidia-power-limit.service
 
+# NOTE: On Debian 10 (Buster) only
+#
 # With older NVIDIA drivers the graphic card could be forced to use the lowest performance level by specifying kernel
 # parameters. These parameters do not seem to have any effect since version 460.* or 470.* of the NVIDIA driver.
 cat << 'EOF' > /etc/modprobe.d/nvidia-power-limit.conf
