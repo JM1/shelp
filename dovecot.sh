@@ -9,11 +9,13 @@ exit # do not run any commands when file is executed
 #
 
 ################################################################################
-# Dovecot on Debian 8 (Jessie), Debian 9 (Stretch), Debian 10 (Buster) and Debian 11 (Bullseye)
+# Dovecot on Debian 8 (Jessie) to Debian 13 (Trixie)
 # Ref.:
-#  /usr/share/doc/dovecot-core/README.Debian.gz
-#  https://wiki2.dovecot.org/AuthDatabase/SQL
-#  https://wiki.dovecot.org/DomainLost
+# /usr/share/doc/dovecot-core/README.Debian
+# https://doc.dovecot.org/2.3/configuration_manual/authentication/sql/
+# https://doc.dovecot.org/2.3/configuration_manual/authentication/domain_lost/
+# https://doc.dovecot.org/main/installation/upgrade/2.3-to-2.4.html
+# https://doc.dovecot.org/2.4.1/core/summaries/settings.html
 
 apt-get install dovecot-pop3d
 
@@ -27,10 +29,16 @@ sed -i -e "s/@emailAddress@/root@$(hostname --fqdn)/g" dovecot-openssl.cnf
 [ -e /etc/dovecot/local.conf ] && \
   mv -i /etc/dovecot/local.conf /etc/dovecot/local.conf.$(date +%Y%m%d%H%M%S --reference /etc/dovecot/local.conf)
 
-cat << EOF >> /etc/dovecot/local.conf
+cat << 'EOF' >> /etc/dovecot/local.conf
 # Dovecot configuration file
-# 2011-2021 Jakob Meng, <jakobmeng@web.de>
+# 2011-2025 Jakob Meng, <jakobmeng@web.de>
 
+EOF
+
+# NOTE: Only required prior to Debian 13 (Trixie)
+# Mail driver mbox is the default in Debian 13 (Trixie).
+# Ref.: https://salsa.debian.org/debian/dovecot/-/blob/debian/1%252.4.1+dfsg1-6+deb13u2/debian/conf/conf.d/10-mail.conf
+cat << EOF >> /etc/dovecot/local.conf
 # Enable mail group temporarily for privileged operations. This is used with the INBOX when either its initial creation
 # or dotlocking fails. Typically, this is set to mail to give access to /var/mail. Without this, errors will be raised
 # when writing to /var/mail, e.g.:
@@ -42,9 +50,21 @@ mail_privileged_group = mail
 
 mail_location = mbox:~/mail:INBOX=/var/mail/%n
 
-# Debugging Output
-#auth_debug=yes
-#auth_debug_passwords=yes
+EOF
+
+# Optionally enable debug logging
+# NOTE: On Debian 8 (Jessie) to Debian 12 (Bookworm)
+cat << EOF >> /etc/dovecot/local.conf
+# Debug logging
+auth_debug = yes
+auth_debug_passwords = yes
+
+EOF
+# NOTE: On Debian 13 (Trixie)
+cat << EOF >> /etc/dovecot/local.conf
+# Debug logging
+log_debug = category=auth
+auth_debug_passwords = yes
 
 EOF
 
@@ -57,7 +77,6 @@ EOF
 #
 # or listen to hostname but then disable non-ssl connections
 cat << EOF >> /etc/dovecot/local.conf
-
 listen = $(hostname --fqdn)
 
 # Disable non-ssl imap and non-ssl pop3
@@ -75,7 +94,10 @@ service pop3-login {
 
 EOF
 
-# Only required on Debian 8 (Jessie) or Debian 9 (Stretch).
+# Verify that Dovecot is listening only on SSL ports
+ss -tulpen | grep dovecot
+
+# NOTE: Only required on Debian 8 (Jessie) or Debian 9 (Stretch).
 # TLS is enabled by default in Dovecot since Debian 10 (Buster).
 cat << 'EOF' >> /etc/dovecot/local.conf
 # Enable SSL
@@ -89,6 +111,7 @@ ssl_key = </etc/dovecot/private/dovecot.key
 
 # Debugging SSL connections
 #verbose_ssl = yes
+
 EOF
 
 # Disable PAM authentication
@@ -120,11 +143,14 @@ EOF
 
 ####################
 # (Optional) Authentication via Passwd-file
-# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+# Ref.:
+# https://doc.dovecot.org/2.3/configuration_manual/authentication/passwd_file/
+# https://doc.dovecot.org/2.4.1/core/config/auth/databases/passwd_file.html
 
+# NOTE: On Debian 8 (Jessie) and Debian 9 (Stretch)
 cat << 'EOF' >> /etc/dovecot/local.conf
 # Authentication via Passwd-file
-# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+# Ref.: https://doc.dovecot.org/2.3/configuration_manual/authentication/passwd_file/
 
 userdb {
   driver = passwd-file
@@ -136,15 +162,48 @@ passdb {
   args = username_format=%n /etc/dovecot/users
 }
 EOF
-# or on Debian 10 (Buster)
+
+# NOTE: Since Debian 10 (Buster)
 sed -i -e 's/^#\!include auth-passwdfile\.conf\.ext/\!include auth-passwdfile\.conf\.ext/g' conf.d/10-auth.conf
+
+# NOTE: Since Debian 13 (Trixie)
+# Either uncomment the passdb and userdb entries manually
+vi /etc/dovecot/conf.d/auth-passwdfile.conf.ext
+#
+# or overwrite with
+cp -raiv /etc/dovecot/conf.d/auth-passwdfile.conf.ext /etc/dovecot/conf.d/auth-passwdfile.conf.ext.orig
+cat << 'EOF' >> /etc/dovecot/conf.d/auth-passwdfile.conf.ext
+#
+# Authentication for passwd-file users. Included from auth.conf.
+#
+# passwd-like file with specified location.
+# <https://doc.dovecot.org/latest/core/config/auth/databases/passwd_file.html>
+
+passdb passwd-file {
+  default_password_scheme = crypt
+  auth_username_format = %{user}
+  passwd_file_path = /etc/dovecot/users
+}
+
+userdb passwd-file {
+  auth_username_format = %{user}
+  passwd_file_path = /etc/dovecot/users
+
+#  fields {
+#    quota_rule:default=*:storage=1G
+#    home=/home/virtual/%{user}
+#  }
+}
+EOF
+diff -Naur /etc/dovecot/conf.d/auth-passwdfile.conf.ext.orig /etc/dovecot/conf.d/auth-passwdfile.conf.ext
+rm -v /etc/dovecot/conf.d/auth-passwdfile.conf.ext.orig
 
 # Generate password hash with doveadm
 # Ref.: https://doc.dovecot.org/configuration_manual/authentication/password_schemes/#authentication-password-schemes
 doveadm pw -s SHA512-CRYPT
 
 # Create passwd file with username and password hash
-# Ref.: https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
+# Ref.: https://doc.dovecot.org/2.3/configuration_manual/authentication/passwd_file/
 cat << 'EOF' >> /etc/dovecot/users
 user:{plain}secret:1000:1000:,,,:/home/user:/usr/sbin/nologin
 EOF
@@ -157,7 +216,8 @@ systemctl status dovecot.service
 
 ####################
 # (Optional) Authentication via MySQL / MariaDB
-# Ref.: https://doc.dovecot.org/configuration_manual/authentication/sql/
+# NOTE: These instructions apply to Dovecot versions 2.3 and earlier, up to Debian 12 (Bookworm).
+# Ref.: https://doc.dovecot.org/2.3/configuration_manual/authentication/sql/
 apt-get install dovecot-mysql
 
 cat << 'EOF' >> /etc/dovecot/local.conf
