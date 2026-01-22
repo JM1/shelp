@@ -12,7 +12,7 @@ exit # do not run any commands when file is executed
 
 apt-get install nvidia-driver nvidia-smi libxml2-utils
 
-# NOTE: On Debian 12 (Bookworm) only
+# NOTE: On Debian 12 (Bookworm) and Debian 13 (Trixie) only
 cat << 'EOF' > /etc/systemd/system/nvidia-power-limit.service
 # 2021-2024 Jakob Meng, <jakobmeng@web.de>
 #
