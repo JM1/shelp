@@ -15,7 +15,7 @@ apt install rasdaemon
 
 cat << 'EOF' > /etc/cron.daily/ras_alert
 #!/bin/sh
-# 2021 Jakob Meng, <jakobmeng@web.de>
+# 2021-2026 Jakob Meng, <jakobmeng@web.de>
 # Alerts for Reliablity, Availability and Serviceability (RAS) reports, e.g.
 # report both correctable and uncorrectable ECC memory errors.
 #
@@ -32,14 +32,31 @@ if [ "$status" != "ras-mc-ctl: drivers are loaded." ]; then
     exit 255
 fi
 
-good_summary="No Memory errors.
+good_summary_v0_6_8="No Memory errors.
 No PCIe AER errors.
 No Extlog errors.
 No MCE errors."
 
+good_summary_v0_8_3="No Memory errors.
+No PCIe AER errors.
+No ARM processor errors.
+No CXL AER uncorrectable errors.
+No CXL AER correctable errors.
+No CXL overflow errors.
+No CXL poison errors.
+No CXL generic errors.
+No CXL general media errors.
+No CXL DRAM errors.
+No CXL memory module errors.
+No Extlog errors.
+No devlink errors.
+No disk errors.
+No Memory failure errors.
+No MCE errors."
+
 summary="$(ras-mc-ctl --summary | grep '[^[:blank:]]')"
 
-if [ "$summary" != "$good_summary" ]; then
+if [ "$summary" != "$good_summary_v0_6_8" ] && [ "$summary" != "$good_summary_v0_8_3" ]; then
     echo "$summary" >&2
     exit 255
 fi
