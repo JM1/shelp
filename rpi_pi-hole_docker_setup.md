@@ -21,7 +21,7 @@ What you need:
 * [`SD card` or `Micro SD card`](https://www.raspberrypi.com/documentation/accessories/sd-cards.html)
   (depending on Raspberry Pi model) with a minimum size of `4GB`
 * (Micro) SD card reader
-* Running Operating System (Linux preferably) which is used to setup Pi-hole on the Raspberry Pi
+* Running Operating System (Linux preferably) which is used to set up Pi-hole on the Raspberry Pi
 * Ethernet cable (optional) because this guide presumes a wired connection to setup and operate Pi-hole
 * Access to router on local network with permission to change DHCP settings
 
@@ -45,296 +45,340 @@ https://www.raspberrypi.com/documentation/computers/getting-started.html#raspber
 
 First download and extract [`Raspberry Pi OS Lite`](https://www.raspberrypi.org/software/operating-systems/), then flash
 it to the (Micro) SD card using e.g. [`Raspberry Pi Imager`](
-https://www.raspberrypi.com/documentation/computers/getting-started.html#raspberry-pi-imager).
-This guide was tested with `Raspberry Pi OS Lite` which was released on `November 19th 2024` and is based on Debian 12
-(Bookworm).
-
-Next step is to perform the network setup of Raspberry Pi. For an interactive setup (requires display and keyboard)
-plug the SD card into the Raspberry Pi, power on the system and follow the official guides to configure a static (!)
-ip address for [ethernet](https://www.raspberrypi.com/documentation/computers/configuration.html#networking)
-or [wifi](https://www.raspberrypi.com/documentation/computers/getting-started.html#wi-fi).
-
-For a headless setup of the network, plug the SD card into the host OS, mount the second partition (`rootfs`) of the
-SD card and edit the files for [ethernet](
-https://www.raspberrypi.com/documentation/computers/configuration.html#networking) or [wifi](
-https://www.raspberrypi.com/documentation/computers/configuration.html#wireless-networking-command-line) directly.
-For example, to set static IPv4 and IPv6 addresses for Raspberry Pi's ethernet port create a new file
-`/etc/NetworkManager/system-connections/first.nmconnection`:
-```
-# 2024 Jakob Meng, <jakobmeng@web.de>
-#
-# Network configuration
-#
-# This example assigns a static ip address, similar to
-# $> nmcli con add con-name "first" ifname eth0 type ethernet ip4 192.168.0.2/16 gw4 192.168.0.1
-# $> nmcli con mod "first" ipv4.dns "1.1.1.1"
-# $> nmcli con mod "first" ipv6.address "fd00::192:168:0:2/128"
-# $> nmcli con mod "first" ipv6.dns "2606:4700:4700::1111"
-# $> nmcli con up "first"
-#
-# Ref.: https://www.networkmanager.dev/docs/api/latest/nm-settings-nmcli.html
-[connection]
-id=first
-type=ethernet
-interface-name=eth0
-
-[ethernet]
-
-[ipv4]
-address1=192.168.0.2/16,192.168.0.1
-dns=1.1.1.1;
-method=manual
-
-[ipv6]
-addr-gen-mode=default
-address1=fd00::192:168:0:2/128
-dns=2606:4700:4700::1111;
-method=auto
-```
-
-[Enable remote access using SSH](https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh). For a
-headless setup, plug the SD card into the host OS, mount the first partition (`boot`) of the SD card, `cd` into the
-mounted directory and `touch ssh` (`sshswitch.service` will then enable SSH and remove this file on the next boot).
+https://www.raspberrypi.com/documentation/computers/getting-started.html#raspberry-pi-imager). This guide was tested
+with `Raspberry Pi OS Lite` which was released on `December 4th 2025` and is based on Debian 13 (Trixie). Do **not**
+insert the SD card into the Raspberry Pi yet.
 
 [Check for existing SSH keys](https://docs.github.com/en/github/authenticating-to-github/checking-for-existing-ssh-keys)
 and [if you do not already have an SSH key then generate a new SSH key and add it to `ssh-agent`](
 https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
 
-Plug the SD card into the Raspberry Pi, power on the system and login with [SSH](
-https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh).
-The default username is `pi` with password `raspberry`.
-
-[Copy your SSH public key to the Raspberry Pi](
-https://wiki.archlinux.org/index.php/SSH_Keys#Copying_the_public_key_to_the_remote_server).
-
-The following steps will all be executed via SSH on the Raspberry Pi:
+Next, mount the second partition (`rootfs`) of the SD card. Follow the instructions below to apply a workaround for a
+[known Raspberry Pi OS issue in which cloud-init does not wait for clock synchronization before executing its final
+stage, which may include package updates](https://github.com/RPi-Distro/rpi-cloud-init-mods/issues/3):
 
 ```sh
-# Become root.
-sudo -s
+# NOTE: Adjust this path to match the mount directory of the second partition (rootfs) on the SD card
+rootmnt="/media/$USER/rootfs"
 
-# Disable logins except ssh (optional).
-passwd --lock pi
+# HACK: Wait for clock synchronization before running the final cloud-init stage, which may run package updates.
+# Ref.: https://github.com/RPi-Distro/rpi-cloud-init-mods/issues/3
+sudo mkdir -p "$rootmnt/etc/systemd/system/sysinit.target.wants"
+sudo ln -s "/usr/lib/systemd/system/systemd-time-wait-sync.service" \
+  "$rootmnt/etc/systemd/system/sysinit.target.wants/systemd-time-wait-sync.service"
+```
+
+Then use a partition editor such as [GParted](https://gparted.org) to change the filesystem label of the first
+partition of the SD card from `bootfs` to `cidata` ([instructions](
+https://gparted.org/display-doc.php?name=help-manual#gparted-setting-partition-file-system-label)). This is a
+workaround for another [known Raspberry Pi OS issue in which cloud-init cannot locate nor mount the NoCloud datasource](
+https://github.com/RPi-Distro/rpi-cloud-init-mods/issues/2).
+
+Afterwards, mount the `cidata` partition and find the cloud-init configuration files `network-config` and `user-data`.
+Editing file `network-config` is optional, it is used for headless network configuration ([network-config v2 reference](
+https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v2.html)). For example, the following
+`network-config` sets static IPv4 and IPv6 addresses for Raspberry Pi's Ethernet port:
+
+```yaml
+# 2026 Jakob Meng, <jakobmeng@web.de>
+# Network configuration
+# Ref.:
+# https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v2.html
+# https://netplan.readthedocs.io/en/latest/netplan-yaml/
+# https://www.raspberrypi.com/news/cloud-init-on-raspberry-pi-os/
+
+network:
+  version: 2
+
+  ethernets:
+    eth0:
+      dhcp4: false
+      dhcp6: false
+      accept-ra: false
+
+      addresses:
+      - 192.168.0.2/16
+      - fd00::192:168:0:2/128
+
+      nameservers:
+        addresses:
+        - 1.1.1.1
+        - 2606:4700:4700::1111
+      routes:
+      - to: 0.0.0.0/0
+        via: 192.168.0.1
+      - to: ::/0
+        via: fd00::192:168:0:1/128
+```
+
+Network configuration of the Raspberry Pi can also be performed interactively later (requires display and keyboard).
+Follow the official documentation to configure a static (!) ip address for
+[Ethernet](https://www.raspberrypi.com/documentation/computers/configuration.html#networking)
+or [Wifi](https://www.raspberrypi.com/documentation/computers/getting-started.html#wi-fi).
+
+Raspberry Pi OS is configured using the `user-data` file, which contains the cloud-init configuration aka cloud config.
+cloud-init reads `user-data` during first boot to provision SSH keys, packages, and other components (see
+[introduction](https://cloudinit.readthedocs.io/en/latest/explanation/introduction.html)).
+
+The cloud config below will:
+* Configure unattended upgrades.
+* Set up [Pi-hole](https://pi-hole.net/) using [Pi-hole's Docker image](
+  https://github.com/pi-hole/docker-pi-hole/#running-pi-hole-docker).
+* Install [Docker Compose](https://docs.docker.com/compose/) to manage the Docker Pi-hole container.
+* Enable [Watchtower](https://containrrr.dev/watchtower/) to automate base image updates for the Pi-hole Docker
+  container.
+
+Refer to the [cloud-init module reference](https://cloudinit.readthedocs.io/en/latest/reference/modules.html)
+for explanations of each option.
+
+Please customize all configuration settings marked with `TODO` in the cloud config below and take note of the
+`WARNING`s and `NOTE`s. Then overwrite the existing `user-data` file on the `cidata` partition of the SD card with the
+modified content.
+
+```yaml
+#cloud-config
+# 2026 Jakob Meng, <jakobmeng@web.de>
+# Ref.: https://cloudinit.readthedocs.io/en/latest/reference/modules.html
+
+# Customize hostname (optional).
+hostname: pihole
 
 # Disable password authentication for SSH logins.
-#
-# NOTE: Ensure SSH public key authentication works before disable password authentication!
-#
-cat << 'EOF' > "/etc/ssh/sshd_config.d/99-disable-password-authentication.conf"
-# 2024 Jakob Meng, <jakobmeng@web.de>
-PasswordAuthentication no
-EOF
+ssh_pwauth: false
 
-# Restart ssh to apply changes.
-systemctl restart ssh.service
+users:
+- name: pi
+
+  # Disable logins except ssh (optional).
+  lock_passwd: true
+
+  # TODO: Replace with your SSH keys.
+  ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2E...
+
+# Upgrade all installed packages
+package_reboot_if_required: true
+package_update: true
+package_upgrade: true
+
+packages:
+#
+# Install tools
+- vim
+- screen
+- aptitude
+- fzf
+- git
+- curl
+#
+# Install Docker runtime and Docker Compose
+- docker.io
+- docker-compose
+#
+# Install unattended upgrades
+- unattended-upgrades
+
+write_files:
+# Prepare Docker Pi-hole.
+#
+# The following docker-compose.yml file configures Docker Pi-hole with host networking mode to allow DHCP responses.
+# See Docker DHCP and Network Modes [0] for rationale and other networking modes. You may also refer to the official
+# example Docker Compose configuration (without Watchtower) [1]. Watchtower [2] will be used to automate base image
+# updates of Pi-hole's Docker container.
+#
+# TODO: Customize Pi-hole's network configuration and Watchtower's configuration in Docker Compose config.
+#
+# NOTE: Self-updating functionality triggered by Watchtower is experimental and might break Pi-hole! For example,
+# updates to the Docker image might require changes of the Docker Compose config, e.g. when deprecated variables have
+# been removed. If you do not want to enable updates using Watchtower, remove the `watchtower:` key and its content
+# from the Docker Compose config below.
+#
+# Ref.:
+# [0] https://docs.pi-hole.net/docker/dhcp/
+# [1] https://github.com/pi-hole/docker-pi-hole/blob/master/README.md#quick-start
+# [2] https://containrrr.dev/watchtower/
+#
+- content: |
+    # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+
+    services:
+      pihole:
+        container_name: pihole
+        image: pihole/pihole:latest
+
+        ports:
+          - "53:53/tcp"
+          - "53:53/udp"
+          - "80:80/tcp"
+          - "443:443/tcp"
+        #
+        # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
+        #network_mode: "host"
+
+        # Pi-hole environment variables
+        # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
+        environment:
+          TZ: 'Europe/Berlin'
+
+          # Set a password to access the web interface. Not setting one will result in a random password being assigned
+          #FTLCONF_webserver_api_password: 'correct horse battery staple'
+
+          FTLCONF_dns_dnssec: 'true'
+
+          # For Docker's default bridge, delete or comment out when using host networking mode
+          FTLCONF_dns_listeningMode: 'ALL'
+          # https://github.com/pi-hole/docker-pi-hole/pull/1946
+
+          # IPv4 address of Raspberry Pi
+          #FTLCONF_dns_reply_host_force4: 'true'
+          #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
+
+          # IPv6 address of Raspberry Pi
+          #FTLCONF_dns_reply_host_force6: 'true'
+          #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
+
+          # Enable DHCP for IPv4? Only required if your router is not
+          # (or cannot be) configured to announce Pi-hole as name server.
+          # See section on router setup below for more info.
+          #FTLCONF_dhcp_active:    'true'
+          #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
+          #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
+          #FTLCONF_dhcp_router:    '192.168.0.1'    # router ip, mandatory if DHCP server is enabled
+          #FTLCONF_dhcp_leaseTime: '64'
+
+          # DHCPv6 Rapid Commit
+          # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
+          #FTLCONF_dhcp_rapidCommit: 'true'
+
+          # Enable DHCPv6 for IPv6? Only required if your router is not
+          # (or cannot be) configured to announce Pi-hole as name server.
+          # See section on router setup below for more info.
+          #FTLCONF_dhcp_ipv6: 'true'
+
+        # Volumes store your data between container upgrades
+        volumes:
+          - './etc-pihole/:/etc/pihole/'
+
+        cap_add:
+          # Required if you are using Pi-hole as your DHCP server, else not needed
+          # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+          - NET_ADMIN
+          # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+          - SYS_TIME
+          # Optional, if Pi-hole should get some more processing time
+          - SYS_NICE
+
+        # Autostart Docker Pi-hole at system boot
+        # Ref.: https://serverfault.com/a/649835/373320
+        restart: unless-stopped
+
+      # TODO: Remove watchtower key and its contents if you do not want to enable Docker image updates
+      watchtower:
+        container_name: watchtower
+        image: containrrr/watchtower:latest
+
+        # Watchtower environment variables
+        # Ref.: https://containrrr.dev/watchtower/arguments/
+        environment:
+          TZ: 'Europe/Berlin'
+          WATCHTOWER_CLEANUP: 'true'
+          WATCHTOWER_INCLUDE_RESTARTING: 'true'
+          WATCHTOWER_ROLLING_RESTART: 'true'
+          WATCHTOWER_TIMEOUT: '30s'
+
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+
+        # Autostart Watchtower at system boot
+        restart: unless-stopped
+  path: /opt/pihole/docker-compose.yml
+- content: |
+    # 2024-2026 Jakob Meng, <jakobmeng@web.de>
+    [Unit]
+    Wants=network-online.target docker.service
+    After=network-online.target docker.service
+
+    [Service]
+    ExecStart=/usr/bin/docker-compose up -d
+    ExecStop=/usr/bin/docker-compose stop
+    WorkingDirectory=/opt/pihole
+    RemainAfterExit=yes
+
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/pihole.service
+#
+# Prepare unattended upgrades
+- content: |
+    #!/bin/bash
+    # 2021-2026 Jakob Meng, <jakobmeng@web.de>
+    # Set up unattended upgrades
+    # Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
+
+    set -eux
+
+    cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
+
+    # Synchronize debconf database with locales' config which will help during
+    # package updates because debconf will not complain about config changes
+    dpkg-reconfigure -f noninteractive unattended-upgrades
+
+    # Enable service which delays shutdown or reboots during upgrades
+    systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
+
+    # Reboot after updates if required to apply changes
+    sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
+      /etc/apt/apt.conf.d/50unattended-upgrades
+
+    # Upgrade all packages
+    grep -q '^[[:space:]]*"origin=\*"' /etc/apt/apt.conf.d/50unattended-upgrades ||
+      sed -z -i -e 's/\nUnattended-Upgrade::Origins-Pattern {\n/'\
+    '\nUnattended-Upgrade::Origins-Pattern {\n        "origin=\*";\n/g' \
+      /etc/apt/apt.conf.d/50unattended-upgrades
+
+    systemctl restart unattended-upgrades.service
+  path: /usr/local/bin/configure-unattended-upgrades
+  permissions: '0755'
+
+runcmd:
+# Customize hostname (optional).
+- sed -i -e 's/raspberrypi$/pihole/g' "/etc/hosts"
+
+# Enable remote access using SSH
+# Ref.: https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh
+- systemctl enable --now --no-block ssh
 
 # Disable bluetooth and wifi (optional)
-# NOTE: Do not block wifi if you are using wifi instead of ethernet!
-rfkill block all
+# TODO: Do not block wifi if you are using wifi instead of ethernet!
+- rfkill block all
 # or
-#rfkill block bluetooth
-
-# Disable swap to reduce sd card wear and increase its lifespan (optional)
-apt-get remove -y dphys-swapfile
+#- rfkill block bluetooth
 
 # Disable persistent logging in journald to reduce sd card wear and increase its lifespan (optional)
 # Ref.: /usr/share/doc/systemd/README.Debian.gz
-rm -rf "/var/log/journal"
+- rm -rf "/var/log/journal"
+- systemctl restart systemd-journald.service
 
-# Upgrade all installed packages
-apt-get update
-apt-get upgrade -y
-apt-get dist-upgrade -y
+# Enable Docker Pi-hole
+- systemctl enable --now --no-block pihole.service
 
-# Install tools
-apt-get install -y vim screen aptitude fzf git curl
-
-# Install Docker runtime and Docker Compose
-apt-get install -y docker.io docker-compose
-
-# Change hostname using your favorite editor, e.g. Vim (optional)
-vi /etc/hostname
-vi /etc/hosts
-
-# Reboot to apply changes
-reboot
+# Configure unattended upgrades
+# WARNING: Do not power off the Raspberry Pi while it is performing updates, which occur by default between 6am and 7am
+# (cf. /lib/systemd/system/apt-daily-upgrade.timer). Interrupting the update process may result in a broken system. If
+# unattended upgrades are not desired, comment out or remove the following line.
+- configure-unattended-upgrades
 ```
 
-Login to Raspberry Pi via SSH after system has rebooted. Now we will enable unattended upgrades of `Raspberry Pi OS`.
+Unmount both SD card partitions, `cidata` (fka `bootfs`) and `rootfs`. Insert the SD card into the Raspberry Pi and
+power it on. The cloud-init provisioning may take up to an hour to complete. Afterwards, login with [SSH](
+https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh). The default username is `pi` with password
+`raspberry`. Perform the following steps via SSH on the Raspberry Pi to verify system healthy:
 
-:warning:
-**NOTE:**
-Do not power off your system while it is updating which will happen at 6am-7am by default (cf.
-`/lib/systemd/system/apt-daily-upgrade.timer`). Interrupting the update process might cause a broken system!
-If you do not want to enable unattended upgrades, skip the next paragraph.
-:warning:
-
-```sh
-# Become root.
-sudo -s
-
-# Set up unattended upgrades
-apt-get install -y unattended-upgrades
-
-# Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
-cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
-# Synchronize debconf database with locales' config which will help during
-# package updates because debconf will not complain about config changes
-dpkg-reconfigure -f noninteractive unattended-upgrades
-
-# Enable service which delays shutdown or reboots during upgrades
-systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
-
-# Reboot after updates if required to apply changes
-sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
-    /etc/apt/apt.conf.d/50unattended-upgrades
-
-# Upgrade all packages
-grep -q '^[[:space:]]*"origin=\*"' /etc/apt/apt.conf.d/50unattended-upgrades ||
-    sed -z -i -e 's/\nUnattended-Upgrade::Origins-Pattern {\n/'\
-'\nUnattended-Upgrade::Origins-Pattern {\n        "origin=\*";\n/g' \
-        /etc/apt/apt.conf.d/50unattended-upgrades
-
-# Reboot to apply changes
-reboot
-```
-
-Next we will setup [Pi-hole](https://pi-hole.net/) using
-[Pi-hole's Docker image](https://github.com/pi-hole/docker-pi-hole/#running-pi-hole-docker).
-[Docker Compose](https://docs.docker.com/compose/) will be used to manage the Docker containers.
-
-Login to Raspberry Pi via SSH after system has rebooted. Create a config file `docker-compose.yml` in a new folder
-`/opt/pihole` for Docker Compose:
-
-```sh
-# Become root.
-sudo -s
-
-# Prepare Docker Pi-hole.
-mkdir -p "/opt/pihole"
-
-# Create a new config Docker Compose using your favorite editor, e.g. Vim
-vi "/opt/pihole/docker-compose.yml"
-```
-
-Docker Pi-hole provides an [example config file for Docker Compose (without Watchtower)](
-https://github.com/pi-hole/docker-pi-hole/blob/master/README.md#quick-start) that might be used as a start.
-
-The following `docker-compose.yml` example configures Docker Pi-hole with host networking mode to allow DHCP responses.
-See [Docker DHCP and Network Modes](https://docs.pi-hole.net/docker/dhcp/) for rationale and other networking modes.
-[Watchtower](https://containrrr.dev/watchtower/) will be used to automate base image updates of Pi-hole's Docker
-container.
-
-:warning:
-**NOTE:**
-Self-updating functionality triggered by Watchtower is experimental and might break Pi-hole! For example, updates to
-the Docker image might require changes of the Docker Compose config, e.g. when deprecated variables have been removed.
-If you do not want to enable updates using Watchtower, remove the `watchtower:` key and its content from the Docker
-Compose file `docker-compose.yml`.
-:warning:
-
-```yaml
-# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
-
-services:
-  pihole:
-    container_name: pihole
-    image: pihole/pihole:latest
-
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "80:80/tcp"
-      - "443:443/tcp"
-    #
-    # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
-    #network_mode: "host"
-
-    # Pi-hole environment variables
-    # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
-    environment:
-      TZ: 'Europe/Berlin'
-
-      # Set a password to access the web interface. Not setting one will result in a random password being assigned
-      #FTLCONF_webserver_api_password: 'correct horse battery staple'
-
-      FTLCONF_dns_dnssec: 'true'
-
-      # For Docker's default bridge, delete or comment out when using host networking mode
-      FTLCONF_dns_listeningMode: 'all'
-
-      # IPv4 address of Raspberry Pi
-      #FTLCONF_dns_reply_host_force4: 'true'
-      #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
-
-      # IPv6 address of Raspberry Pi
-      #FTLCONF_dns_reply_host_force6: 'true'
-      #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
-
-      # Enable DHCP for IPv4? Only required if your router is not
-      # (or cannot be) configured to announce Pi-hole as name server.
-      # See section on router setup below for more info.
-      #FTLCONF_dhcp_active:    'true'
-      #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
-      #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
-      #FTLCONF_dhcp_router:    '192.168.0.1'   # router ip, mandatory if DHCP server is enabled
-      #FTLCONF_dhcp_leaseTime: '64'
-
-      # DHCPv6 Rapid Commit
-      # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
-      #FTLCONF_dhcp_rapidCommit: 'true'
-
-      # Enable DHCPv6 for IPv6? Only required if your router is not
-      # (or cannot be) configured to announce Pi-hole as name server.
-      # See section on router setup below for more info.
-      #FTLCONF_dhcp_ipv6: 'true'
-
-    # Volumes store your data between container upgrades
-    volumes:
-      - './etc-pihole/:/etc/pihole/'
-
-    cap_add:
-      # Required if you are using Pi-hole as your DHCP server, else not needed
-      # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
-      - NET_ADMIN
-      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
-      - SYS_TIME
-      # Optional, if Pi-hole should get some more processing time
-      - SYS_NICE
-
-    # Autostart Docker Pi-hole at system boot
-    restart: unless-stopped
-
-  # Remove watchtower key and its contents if you do not want to enable Docker image updates
-  watchtower:
-    container_name: watchtower
-    image: containrrr/watchtower:latest
-
-    # Watchtower environment variables
-    # Ref.: https://containrrr.dev/watchtower/arguments/
-    environment:
-      TZ: 'Europe/Berlin'
-      WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_INCLUDE_RESTARTING: 'true'
-      WATCHTOWER_ROLLING_RESTART: 'true'
-      WATCHTOWER_TIMEOUT: '30s'
-
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    # Autostart Watchtower at system boot
-    restart: unless-stopped
-```
-
-Now bring up all containers with:
 ```sh
 # Become root.
 sudo -s
 
 cd "/opt/pihole"
-
-# Run container in background.
-docker-compose up -d
 
 # Verify that all containers are up and running.
 docker ps
@@ -349,8 +393,9 @@ docker logs pihole
 docker logs pihole | grep -i password
 ```
 
-Open a browser and enter ip address of your Raspberry Pi. Navigate to the Pi-hole admin panel by following the link on
-`Did you mean to go to the admin panel?`. Enter the web password and have a look around. Now proceed with router setup.
+Open a browser and enter the Raspberry PI's IP address. Navigate to the Pi-hole admin panel using the link behind
+`Did you mean to go to your Pi-hole's dashboard instead?`. Enter the web password to access the dashboard, explore
+the interface, and then proceed with the router configuration.
 
 ## Router Setup
 

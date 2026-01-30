@@ -2,7 +2,7 @@
 # vim:set tabstop=8 shiftwidth=4 expandtab:
 # kate: space-indent on; indent-width 4;
 #
-# Copyright (c) 2024 Jakob Meng, <jakobmeng@web.de>
+# Copyright (c) 2024-2026 Jakob Meng, <jakobmeng@web.de>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ Recent images for Raspberry PI OS can be found at:
   https://www.raspberrypi.com/software/operating-systems/
 
 Raspberry Pi OS Lite is recommended, no desktop or other software is required.
-Releases of Raspberry PI OS prior to Debian 12 (Bookworm) are not supported.
+Releases of Raspberry PI OS prior to Debian 13 (Trixie) are not supported.
 
 OPTIONS:
     -h, --help                    Print usage.
@@ -79,7 +79,7 @@ do
 done
 
 rpi_os=""
-rpi_os_default="https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2024-11-19/2024-11-19-raspios-bookworm-armhf-lite.img.xz"
+rpi_os_default="https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2025-12-04/2025-12-04-raspios-trixie-armhf-lite.img.xz"
 
 while [ $# -ne 0 ]; do
     case "$1" in
@@ -179,6 +179,10 @@ trap 'cleanup' INT EXIT
 
 loopdev="$(losetup --find --show -P "$pihole")"
 
+# HACK: Rename vfat partition to ensure the NoCloud datasource volume label is set to cidata, as required by cloud-init.
+# Ref.: https://github.com/RPi-Distro/rpi-cloud-init-mods/issues/2
+fatlabel "${loopdev}p1" "cidata"
+
 bootmnt="$(mktemp -d -t rpi-os-boot.XXXXXXXXXX)"
 rootmnt="$(mktemp -d -t rpi-os-root.XXXXXXXXXX)"
 [ -n "$bootmnt" ] && [ -d "$bootmnt" ] # assert
@@ -186,287 +190,299 @@ rootmnt="$(mktemp -d -t rpi-os-root.XXXXXXXXXX)"
 mount "${loopdev}p1" "$bootmnt"
 mount "${loopdev}p2" "$rootmnt"
 
-if [ "$(cut -d. -f1 "$rootmnt/etc/debian_version")" -le 11 ]; then
-    error "Raspberry PI OS releases prior to Debian 12 (Bookworm) are not supported."
+if [ "$(cut -d. -f1 "$rootmnt/etc/debian_version")" -le 12 ]; then
+    error "Raspberry PI OS releases prior to Debian 13 (Trixie) are not supported."
     exit 1
 fi
 
-# TODO: Adapt network configuration.
+# HACK: Wait for clock synchronization before running the final cloud-init stage, which may run package updates.
+# Ref.: https://github.com/RPi-Distro/rpi-cloud-init-mods/issues/3
+mkdir -p "$rootmnt/etc/systemd/system/sysinit.target.wants"
+ln -s "/usr/lib/systemd/system/systemd-time-wait-sync.service" "$rootmnt/etc/systemd/system/sysinit.target.wants/systemd-time-wait-sync.service"
+
+# Write cloud-init network configuration.
+# TODO: Customize cloud-init network configuration.
 #
-# Delete the following NetworkManager configuration (first.nmconnection)
+# Delete the following cloud-init network configuration (network-config)
 # when DHCP should be used instead of static ip address assignment.
-cat << 'EOF' > "$rootmnt/etc/NetworkManager/system-connections/first.nmconnection"
-# 2024 Jakob Meng, <jakobmeng@web.de>
-#
+cat << 'EOF' >> "$bootmnt/network-config"
+# 2026 Jakob Meng, <jakobmeng@web.de>
 # Network configuration
-#
-# This example assigns a static ip address, similar to
-# $> nmcli con add con-name "first" ifname eth0 type ethernet ip4 192.168.0.2/16 gw4 192.168.0.1
-# $> nmcli con mod "first" ipv4.dns "1.1.1.1"
-# $> nmcli con mod "first" ipv6.address "fd00::192:168:0:2/128"
-# $> nmcli con mod "first" ipv6.dns "2606:4700:4700::1111"
-# $> nmcli con up "first"
-#
-# Ref.: https://www.networkmanager.dev/docs/api/latest/nm-settings-nmcli.html
-[connection]
-id=first
-type=ethernet
-interface-name=eth0
+# Ref.:
+# https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v2.html
+# https://netplan.readthedocs.io/en/latest/netplan-yaml/
+# https://www.raspberrypi.com/news/cloud-init-on-raspberry-pi-os/
 
-[ethernet]
+network:
+  version: 2
 
-[ipv4]
-address1=192.168.0.2/16,192.168.0.1
-dns=1.1.1.1;
-method=manual
+  ethernets:
+    eth0:
+      dhcp4: false
+      dhcp6: false
+      accept-ra: false
 
-[ipv6]
-addr-gen-mode=default
-address1=fd00::192:168:0:2/128
-dns=2606:4700:4700::1111;
-method=auto
+      addresses:
+      - 192.168.0.2/16
+      - fd00::192:168:0:2/128
+
+      nameservers:
+        addresses:
+        - 1.1.1.1
+        - 2606:4700:4700::1111
+      routes:
+      - to: 0.0.0.0/0
+        via: 192.168.0.1
+      - to: ::/0
+        via: fd00::192:168:0:1/128
+
+# Connect Raspberry Pi to a Wi-Fi network
+#  wifis:
+#    wlan0:
+#      dhcp4: false
+#      dhcp6: false
+#      accept-ra: false
+#      optional: true
+#      access-points:
+#        "network_ssid_name":
+#          password: "**********"
 EOF
-chmod u=rw,g=,o= "$rootmnt/etc/NetworkManager/system-connections/first.nmconnection"
 
-# Disable persistent logging in journald to reduce sd card wear and increase its lifespan (optional)
-# Ref.: /usr/share/doc/systemd/README.Debian.gz
-rm -rf "$rootmnt/var/log/journal"
+# Write cloud-init configuration.
+# TODO: Customize cloud-init configuration.
+cat << 'EOF' >> "$bootmnt/user-data"
+#cloud-config
+# 2026 Jakob Meng, <jakobmeng@web.de>
+# Ref.: https://cloudinit.readthedocs.io/en/latest/reference/modules.html
 
-# Enable remote access using SSH.
-touch "$bootmnt/ssh"
-
-mkdir "$rootmnt/home/pi/.ssh"
-chown 1000:1000 "$rootmnt/home/pi/.ssh"
-chmod u=rwx,g=,o= "$rootmnt/home/pi/.ssh"
-
-# TODO: Replace with your SSH keys.
-cat << 'EOF' > "$rootmnt/home/pi/.ssh/authorized_keys"
-ssh-rsa AAAAB3NzaC1yc2E...
-EOF
-chmod u=rw,g=,o= "$rootmnt/home/pi/.ssh/authorized_keys"
-chown 1000:1000 "$rootmnt/home/pi/.ssh/authorized_keys"
-
-# Disable logins except ssh (optional).
-passwd --lock pi --root "$rootmnt" >/dev/null
+# Customize hostname (optional).
+hostname: pihole
 
 # Disable password authentication for SSH logins.
-cat << 'EOF' > "$rootmnt/etc/ssh/sshd_config.d/99-disable-password-authentication.conf"
-# 2024 Jakob Meng, <jakobmeng@web.de>
-PasswordAuthentication no
-EOF
+ssh_pwauth: false
 
-# Change hostname.
-#
-# TODO: Adapt hostname (optional).
-cat << 'EOF' > "$rootmnt/etc/hostname"
-pihole
-EOF
-#
-# TODO: Adapt hostname (optional).
-sed -i -e 's/raspberrypi$/pihole/g' "$rootmnt/etc/hosts"
+users:
+- name: pi
 
-# Prepare bootstrap steps such as package installation.
-# TODO: Analyse entries marked as optional.
-cat << 'EOF' > "$rootmnt/usr/local/bin/bootstrap.sh"
-#!/bin/bash
-# 2021-2024 Jakob Meng, <jakobmeng@web.de>
+  # Disable logins except ssh (optional).
+  lock_passwd: true
 
-set -eux
-
-# Disable bluetooth and wifi (optional)
-# NOTE: Do not block wifi if you are using wifi instead of ethernet!
-rfkill block all
-# or
-#rfkill block bluetooth
-
-# Disable swap to reduce sd card wear and increase its lifespan (optional)
-apt-get remove -y dphys-swapfile
+  # TODO: Replace with your SSH keys.
+  ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2E...
 
 # Upgrade all installed packages
-apt-get update
-apt-get upgrade -y
-apt-get dist-upgrade -y
+package_reboot_if_required: true
+package_update: true
+package_upgrade: true
 
-# Install tools
-apt-get install -y vim screen aptitude fzf git curl
-
-# Install Docker runtime and Docker Compose
-apt-get install -y docker.io docker-compose
-
-# Set up unattended upgrades
-apt-get install -y unattended-upgrades
-
-# Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
-cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
-# Synchronize debconf database with locales' config which will help during
-# package updates because debconf will not complain about config changes
-dpkg-reconfigure -f noninteractive unattended-upgrades
-
-# Enable service which delays shutdown or reboots during upgrades
-systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
-
-# Reboot after updates if required to apply changes
-sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
-    /etc/apt/apt.conf.d/50unattended-upgrades
-
-# Upgrade all packages
-grep -q '^[[:space:]]*"origin=\*"' /etc/apt/apt.conf.d/50unattended-upgrades ||
-    sed -z -i -e 's/\nUnattended-Upgrade::Origins-Pattern {\n/'\
-'\nUnattended-Upgrade::Origins-Pattern {\n        "origin=\*";\n/g' \
-        /etc/apt/apt.conf.d/50unattended-upgrades
-
-touch /var/lib/bootstrapped
-
-# Reboot to apply changes
-reboot
-EOF
-chmod u=rwx,g=rx,o=rx "$rootmnt/usr/local/bin/bootstrap.sh"
-
-cat << 'EOF' > "$rootmnt/etc/systemd/system/bootstrap.service"
-# 2023 Jakob Meng, <jakobmeng@web.de>
-[Unit]
-Wants=network-online.target
-After=network-online.target
-
-StartLimitBurst=3
-StartLimitIntervalSec=infinity
-
-ConditionPathExists=!/var/lib/bootstrapped
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/bootstrap.sh
-RemainAfterExit=yes
-# Retry because network configuration might not be completed despite Wants=network-online.target
-Restart=on-failure
-RestartSec=15s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-chmod u=rw,g=r,o=r "$rootmnt/etc/systemd/system/bootstrap.service"
-ln -s "/etc/systemd/system/bootstrap.service" "$rootmnt/etc/systemd/system/multi-user.target.wants/bootstrap.service"
-
-# Prepare Docker Pi-hole.
-mkdir -p "$rootmnt/opt/pihole"
-# TODO: Adapt Pi-hole's network configuration and Watchtower's configuration in Docker Compose config.
+packages:
 #
-# NOTE: Self-updating functionality triggered by Watchtower is experimental and might break Pi-hole! For example, 
+# Install tools
+- vim
+- screen
+- aptitude
+- fzf
+- git
+- curl
+#
+# Install Docker runtime and Docker Compose
+- docker.io
+- docker-compose
+#
+# Install unattended upgrades
+- unattended-upgrades
+
+write_files:
+# Prepare Docker Pi-hole.
+#
+# The following docker-compose.yml file configures Docker Pi-hole with host networking mode to allow DHCP responses.
+# See Docker DHCP and Network Modes [0] for rationale and other networking modes. You may also refer to the official
+# example Docker Compose configuration (without Watchtower) [1]. Watchtower [2] will be used to automate base image
+# updates of Pi-hole's Docker container.
+#
+# TODO: Customize Pi-hole's network configuration and Watchtower's configuration in Docker Compose config.
+#
+# NOTE: Self-updating functionality triggered by Watchtower is experimental and might break Pi-hole! For example,
 # updates to the Docker image might require changes of the Docker Compose config, e.g. when deprecated variables have
 # been removed. If you do not want to enable updates using Watchtower, remove the `watchtower:` key and its content
 # from the Docker Compose config below.
 #
-cat << 'EOF' > "$rootmnt/opt/pihole/docker-compose.yml"
-# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+# Ref.:
+# [0] https://docs.pi-hole.net/docker/dhcp/
+# [1] https://github.com/pi-hole/docker-pi-hole/blob/master/README.md#quick-start
+# [2] https://containrrr.dev/watchtower/
+#
+- content: |
+    # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
 
-services:
-  pihole:
-    container_name: pihole
-    image: pihole/pihole:latest
+    services:
+      pihole:
+        container_name: pihole
+        image: pihole/pihole:latest
 
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "80:80/tcp"
-      - "443:443/tcp"
-    #
-    # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
-    #network_mode: "host"
+        ports:
+          - "53:53/tcp"
+          - "53:53/udp"
+          - "80:80/tcp"
+          - "443:443/tcp"
+        #
+        # Use host networking mode instead when enabling DHCP for IPv4 or IPv6
+        #network_mode: "host"
 
-    # Pi-hole environment variables
-    # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
-    environment:
-      TZ: 'Europe/Berlin'
+        # Pi-hole environment variables
+        # Ref.: https://github.com/pi-hole/docker-pi-hole#environment-variables
+        environment:
+          TZ: 'Europe/Berlin'
 
-      # Set a password to access the web interface. Not setting one will result in a random password being assigned
-      #FTLCONF_webserver_api_password: 'correct horse battery staple'
+          # Set a password to access the web interface. Not setting one will result in a random password being assigned
+          #FTLCONF_webserver_api_password: 'correct horse battery staple'
 
-      FTLCONF_dns_dnssec: 'true'
+          FTLCONF_dns_dnssec: 'true'
 
-      # For Docker's default bridge, delete or comment out when using host networking mode
-      FTLCONF_dns_listeningMode: 'all'
+          # For Docker's default bridge, delete or comment out when using host networking mode
+          FTLCONF_dns_listeningMode: 'ALL'
+          # https://github.com/pi-hole/docker-pi-hole/pull/1946
 
-      # IPv4 address of Raspberry Pi
-      #FTLCONF_dns_reply_host_force4: 'true'
-      #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
+          # IPv4 address of Raspberry Pi
+          #FTLCONF_dns_reply_host_force4: 'true'
+          #FTLCONF_dns_reply_host_IPv4: '192.168.0.2'
 
-      # IPv6 address of Raspberry Pi
-      #FTLCONF_dns_reply_host_force6: 'true'
-      #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
+          # IPv6 address of Raspberry Pi
+          #FTLCONF_dns_reply_host_force6: 'true'
+          #FTLCONF_dns_reply_host_IPv6: 'fd00::192:168:0:2'
 
-      # Enable DHCP for IPv4? Only required if your router is not
-      # (or cannot be) configured to announce Pi-hole as name server.
-      # See section on router setup below for more info.
-      #FTLCONF_dhcp_active:    'true'
-      #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
-      #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
-      #FTLCONF_dhcp_router:    '192.168.0.1'   # router ip, mandatory if DHCP server is enabled
-      #FTLCONF_dhcp_leaseTime: '64'
+          # Enable DHCP for IPv4? Only required if your router is not
+          # (or cannot be) configured to announce Pi-hole as name server.
+          # See section on router setup below for more info.
+          #FTLCONF_dhcp_active:    'true'
+          #FTLCONF_dhcp_start:     '192.168.0.101' # first IPv4 address used for DHCP
+          #FTLCONF_dhcp_end:       '192.168.0.254' # last IPv4 address used for DHCP
+          #FTLCONF_dhcp_router:    '192.168.0.1'    # router ip, mandatory if DHCP server is enabled
+          #FTLCONF_dhcp_leaseTime: '64'
 
-      # DHCPv6 Rapid Commit
-      # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
-      #FTLCONF_dhcp_rapidCommit: 'true'
+          # DHCPv6 Rapid Commit
+          # Ref.: https://discourse.pi-hole.net/t/option-enable-dhcp-rapid-commit-fast-address-assignment/17079
+          #FTLCONF_dhcp_rapidCommit: 'true'
 
-      # Enable DHCPv6 for IPv6? Only required if your router is not
-      # (or cannot be) configured to announce Pi-hole as name server.
-      # See section on router setup below for more info.
-      #FTLCONF_dhcp_ipv6: 'true'
+          # Enable DHCPv6 for IPv6? Only required if your router is not
+          # (or cannot be) configured to announce Pi-hole as name server.
+          # See section on router setup below for more info.
+          #FTLCONF_dhcp_ipv6: 'true'
 
-    # Volumes store your data between container upgrades
-    volumes:
-      - './etc-pihole/:/etc/pihole/'
+        # Volumes store your data between container upgrades
+        volumes:
+          - './etc-pihole/:/etc/pihole/'
 
-    cap_add:
-      # Required if you are using Pi-hole as your DHCP server, else not needed
-      # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
-      - NET_ADMIN
-      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
-      - SYS_TIME
-      # Optional, if Pi-hole should get some more processing time
-      - SYS_NICE
+        cap_add:
+          # Required if you are using Pi-hole as your DHCP server, else not needed
+          # Ref.: https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+          - NET_ADMIN
+          # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
+          - SYS_TIME
+          # Optional, if Pi-hole should get some more processing time
+          - SYS_NICE
 
-    # Autostart Docker Pi-hole at system boot
-    # Ref.: https://serverfault.com/a/649835/373320
-    restart: unless-stopped
+        # Autostart Docker Pi-hole at system boot
+        # Ref.: https://serverfault.com/a/649835/373320
+        restart: unless-stopped
 
-  # Remove watchtower key and its contents if you do not want to enable Docker image updates
-  watchtower:
-    container_name: watchtower
-    image: containrrr/watchtower:latest
+      # TODO: Remove watchtower key and its contents if you do not want to enable Docker image updates
+      watchtower:
+        container_name: watchtower
+        image: containrrr/watchtower:latest
 
-    # Watchtower environment variables
-    # Ref.: https://containrrr.dev/watchtower/arguments/
-    environment:
-      TZ: 'Europe/Berlin'
-      WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_INCLUDE_RESTARTING: 'true'
-      WATCHTOWER_ROLLING_RESTART: 'true'
-      WATCHTOWER_TIMEOUT: '30s'
+        # Watchtower environment variables
+        # Ref.: https://containrrr.dev/watchtower/arguments/
+        environment:
+          TZ: 'Europe/Berlin'
+          WATCHTOWER_CLEANUP: 'true'
+          WATCHTOWER_INCLUDE_RESTARTING: 'true'
+          WATCHTOWER_ROLLING_RESTART: 'true'
+          WATCHTOWER_TIMEOUT: '30s'
 
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
 
-    # Autostart Watchtower at system boot
-    restart: unless-stopped
+        # Autostart Watchtower at system boot
+        restart: unless-stopped
+  path: /opt/pihole/docker-compose.yml
+- content: |
+    # 2024-2026 Jakob Meng, <jakobmeng@web.de>
+    [Unit]
+    Wants=network-online.target docker.service
+    After=network-online.target docker.service
+
+    [Service]
+    ExecStart=/usr/bin/docker-compose up -d
+    ExecStop=/usr/bin/docker-compose stop
+    WorkingDirectory=/opt/pihole
+    RemainAfterExit=yes
+
+    [Install]
+    WantedBy=multi-user.target
+  path: /etc/systemd/system/pihole.service
+#
+# Prepare unattended upgrades
+- content: |
+    #!/bin/bash
+    # 2021-2026 Jakob Meng, <jakobmeng@web.de>
+    # Set up unattended upgrades
+    # Ref.: /var/lib/dpkg/info/unattended-upgrades.postinst
+
+    set -eux
+
+    cp -rav /usr/share/unattended-upgrades/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades
+
+    # Synchronize debconf database with locales' config which will help during
+    # package updates because debconf will not complain about config changes
+    dpkg-reconfigure -f noninteractive unattended-upgrades
+
+    # Enable service which delays shutdown or reboots during upgrades
+    systemctl is-enabled unattended-upgrades.service || systemctl enable unattended-upgrades.service
+
+    # Reboot after updates if required to apply changes
+    sed -i -e 's/\/\/Unattended-Upgrade::Automatic-Reboot "false";/Unattended-Upgrade::Automatic-Reboot "true";/g' \
+      /etc/apt/apt.conf.d/50unattended-upgrades
+
+    # Upgrade all packages
+    grep -q '^[[:space:]]*"origin=\*"' /etc/apt/apt.conf.d/50unattended-upgrades ||
+      sed -z -i -e 's/\nUnattended-Upgrade::Origins-Pattern {\n/'\
+    '\nUnattended-Upgrade::Origins-Pattern {\n        "origin=\*";\n/g' \
+      /etc/apt/apt.conf.d/50unattended-upgrades
+
+    systemctl restart unattended-upgrades.service
+  path: /usr/local/bin/configure-unattended-upgrades
+  permissions: '0755'
+
+runcmd:
+# Customize hostname (optional).
+- sed -i -e 's/raspberrypi$/pihole/g' "/etc/hosts"
+
+# Enable remote access using SSH
+# Ref.: https://www.raspberrypi.com/documentation/computers/remote-access.html#ssh
+- systemctl enable --now --no-block ssh
+
+# Disable bluetooth and wifi (optional)
+# TODO: Do not block wifi if you are using wifi instead of ethernet!
+- rfkill block all
+# or
+#- rfkill block bluetooth
+
+# Disable persistent logging in journald to reduce sd card wear and increase its lifespan (optional)
+# Ref.: /usr/share/doc/systemd/README.Debian.gz
+- rm -rf "/var/log/journal"
+- systemctl restart systemd-journald.service
+
+# Enable Docker Pi-hole
+- systemctl enable --now --no-block pihole.service
+
+# Configure unattended upgrades
+# WARNING: Do not power off the Raspberry Pi while it is performing updates, which occur by default between 6am and 7am
+# (cf. /lib/systemd/system/apt-daily-upgrade.timer). Interrupting the update process may result in a broken system. If
+# unattended upgrades are not desired, comment out or remove the following line.
+- configure-unattended-upgrades
 EOF
-
-cat << 'EOF' > "$rootmnt/etc/systemd/system/pihole.service"
-# 2024 Jakob Meng, <jakobmeng@web.de>
-[Unit]
-Wants=network-online.target docker.service
-After=network-online.target docker.service
-
-[Service]
-ExecStart=/usr/bin/docker-compose up -d
-ExecStop=/usr/bin/docker-compose stop
-WorkingDirectory=/opt/pihole
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-chmod u=rw,g=r,o=r "$rootmnt/etc/systemd/system/pihole.service"
-ln -s "/etc/systemd/system/pihole.service" "$rootmnt/etc/systemd/system/multi-user.target.wants/pihole.service"
 
 cleanup
 trap - INT EXIT
