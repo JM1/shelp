@@ -348,9 +348,10 @@ openssl genrsa -out "${CN}.key" ${KEY_SIZE}
 openssl req -nodes -new -key "${CN}.key" -out "${CN}.csr" -extensions server -config "openssl.cnf"
 chmod 0600 "${CN}.key"
 
-# Self signing the server certificate here. This is a no-no in production.
+# Sign the server certificate with the self-signed CA certificate. This is a no-no in production.
 CA=ca
-openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -batch -out "${CN}.crt" -in "${CN}.csr" -extensions server -config "openssl.cnf"
+openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -batch -out "${CN}.crt" -in "${CN}.csr" \
+  -extensions server -config "openssl.cnf"
 
 
 # Create the Client Key and CSR
@@ -365,10 +366,11 @@ chmod 0600 "${CN}.key"
 CA=ca
 openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -batch -out "${CN}.crt" -in "${CN}.csr" -config "openssl.cnf"
 
-# NOTE: Once your (self-)signed certificate is ready you might consider appending intermediate certificates in reverse 
+# NOTE: Once your (self-)signed certificate is ready you might consider appending intermediate certificates in reverse
 #       order so that a client can verify the whole certificate chain, reference: http://serverfault.com/a/666589/373320
 cat "${CA}.crt" >> "${CN}.crt"
 sed '/^$/d' -i "${CN}.crt" # remove blank lines (bad style)
+
 
 # Optional: Renew Certificate of Certificate Authority
 CA=ca
@@ -417,6 +419,7 @@ export KEY_ALTNAMES=""
 openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -revoke "${CN}.crt" -config "openssl.cnf"
 openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -gencrl -out "${CA}.crl" -config "openssl.cnf"
 
+
 # Optional: Convert Certificate and Private Key into Windows-compatible PFX-Format
 CA=ca
 CN=client
@@ -424,10 +427,12 @@ openssl pkcs12 -export -inkey "${CN}.key" -in "${CN}.crt" -certfile "${CA}.crt" 
 chmod 0600 "${CN}.p12"
 ln -s "${CN}.p12" "${CN}.pfx"
 
+
 # Optional: Convert from DER to PEM format
 CN=client
 openssl x509 -inform DER -outform PEM -in "${CN}.crt" -out "${CN}.crt.pem"
 openssl rsa  -inform DER -outform PEM -in "${CN}.key" -out "${CN}.key.pem"
+
 
 # Optional: Show details of Certificate Signing Request
 CN=client
