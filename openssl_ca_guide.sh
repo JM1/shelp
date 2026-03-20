@@ -2,7 +2,7 @@
 # vim:set syntax=sh:
 # kate: syntax bash;
 # SPDX-License-Identifier: CC-BY-SA-4.0
-# Copyright 2021 Jakob Meng, <jakobmeng@web.de>
+# Copyright 2021-2026 Jakob Meng, <jakobmeng@web.de>
 exit # do not run any commands when file is executed
 #
 # Create SSL Certificates for authentication via Client Certificates
@@ -21,7 +21,7 @@ export       KEY_OU="Fachbereich Informatik"
 # export       KEY_CN="webserver.inf.h-brs.de" # configured individually
 export     KEY_NAME="Jakob Meng"
 export    KEY_EMAIL="jakob.meng@h-brs.de"
-# export KEY_ALTNAMES="DNS:webserver.inf.h-brs.de, DNS:webserver, DNS: X00248.inf.h-brs.de, DNS: X00248" # configured individually
+# export KEY_ALTNAMES="DNS:webserver.inf.h-brs.de,DNS:webserver,DNS:X00248.inf.h-brs.de,DNS:X00248" # configured individually
 EOF
 
 # Adapt openssl.vars to your needs
@@ -56,7 +56,7 @@ cat << EOF > openssl.cnf
 # export KEY_CN       = webserver.inf.h-brs.de
 # export KEY_NAME     = Jakob Meng
 # export KEY_EMAIL    = jakob.meng@h-brs.de
-# export KEY_ALTNAMES = DNS:webserver.inf.h-brs.de, DNS:webserver, DNS: X00248.inf.h-brs.de, DNS: X00248
+# export KEY_ALTNAMES = DNS:webserver.inf.h-brs.de,DNS:webserver,DNS:X00248.inf.h-brs.de,DNS:X00248
 #
 # References:
 #  /usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-1.0.0.cnf or /usr/share/easy-rsa/openssl-1.0.0.cnf
@@ -335,7 +335,7 @@ openssl ca -gencrl -keyfile "${CA}.key" -cert "${CA}.crt" -out "${CA}.crl" -conf
 # Create the Server Key, CSR, and Certificate
 CN=server
 export KEY_CN=${CN}.inf.h-brs.de
-export KEY_ALTNAMES="DNS:${CN}, DNS:${KEY_CN}"
+export KEY_ALTNAMES="DNS:${CN},DNS:${KEY_CN}"
 openssl genrsa -out "${CN}.key" ${KEY_SIZE}
 openssl req -nodes -new -key "${CN}.key" -out "${CN}.csr" -extensions server -config "openssl.cnf"
 chmod 0600 "${CN}.key"
@@ -348,7 +348,7 @@ openssl ca -keyfile "${CA}.key" -cert "${CA}.crt" -batch -out "${CN}.crt" -in "$
 # Create the Client Key and CSR
 CN=client
 export KEY_CN=${CN}.inf.h-brs.de
-export KEY_ALTNAMES="DNS:${CN}, DNS:${KEY_CN}"
+export KEY_ALTNAMES="DNS:${CN},DNS:${KEY_CN}"
 openssl genrsa -out "${CN}.key" ${KEY_SIZE}
 openssl req -nodes -new -key "${CN}.key" -out "${CN}.csr" -config "openssl.cnf"
 chmod 0600 "${CN}.key"
