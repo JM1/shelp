@@ -232,20 +232,9 @@ basicConstraints=CA:FALSE
 # Here are some examples of the usage of nsCertType. If it is omitted
 # the certificate can be used for anything *except* object signing.
 
-# This is OK for an SSL server.
-# nsCertType = server
-
-# For an object signing certificate this would be used.
-# nsCertType = objsign
-
-# For normal client use this is typical
-# nsCertType = client, email
-
-# and for everything including object signing:
-# nsCertType = client, email, objsign
-
-# This is typical in keyUsage for a client certificate.
-# keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+# nsCertType "was used to indicate the purposes for which a certificate could be used. The basicConstraints, keyUsage 
+# and extended key usage extensions are now used instead."
+# Ref.: https://docs.openssl.org/master/man5/x509v3_config/#netscape-certificate-type
 
 # This will be displayed in Netscape's comment listbox.
 nsComment                      = "Certificate Configuration of $(date "+%Y-%m-%d %H:%M:%S")"
@@ -254,7 +243,9 @@ nsComment                      = "Certificate Configuration of $(date "+%Y-%m-%d
 subjectKeyIdentifier           = hash
 authorityKeyIdentifier         = keyid,issuer:always
 extendedKeyUsage               = clientAuth
-keyUsage                       = digitalSignature
+
+# This is typical in keyUsage for a client certificate.
+keyUsage                       = nonRepudiation, digitalSignature, keyEncipherment
 
 # This stuff is for subjectAltName and issuerAltname.
 # Import the email address.
