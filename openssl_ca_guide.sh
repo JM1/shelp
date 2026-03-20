@@ -374,10 +374,40 @@ sed '/^$/d' -i "${CN}.crt" # remove blank lines (bad style)
 CA=ca
 export KEY_CN="$KEY_ORG CA"
 export KEY_ALTNAMES="${KEY_CN}"
-mv -i "${CA}.crt" "${CA}.crt.$(date +%Y%m%d%H%M%S)"
-openssl req -days 3650 -nodes -new -x509 -key "${CA}.key" -out "${CA}.crt" -config "openssl.cnf" # Parameter '-days 3650' is required here because value from *.cnf file is ignored!
-# Verify renewed certificate with:
-openssl verify -CAfile "${CA}.crt" -verbose "${CN}.crt" # Verification fails, but certificate is accepted by e.g. firefox nevertheless..
+[ -e "${CA}.crt" ] && mv -vi "${CA}.crt" "${CA}.crt.$(date +%Y%m%d%H%M%S -r "${CA}.crt")"
+[ -e "${CA}.csr" ] && mv -vi "${CA}.csr" "${CA}.csr.$(date +%Y%m%d%H%M%S -r "${CA}.csr")"
+
+# Create and sign a new CA certificate.
+# NOTE: Parameter '-days 3650' is required here because value from *.cnf file is ignored!
+openssl req -days 3650 -nodes -new -x509 -key "${CA}.key" -out "${CA}.crt" -config "openssl.cnf"
+
+# Two-step alternative: Create a certificate signing request (CSR) for the CA, then sign it.
+#
+# NOTE: The CSR contains 'basicConstraints = CA:FALSE' and
+#       'keyUsage = nonRepudiation, digitalSignature, keyEncipherment' because 'openssl req' applies the v3_req
+#       extension as specified by 'req_extensions = v3_req' in openssl.cnf. However, when  'openssl x509' is invoked
+#       with the 'v3_ca' extension, it sets 'basicConstraints = critical, CA:TRUE' and omits the 'keyUsage' extension in
+#       the resulting certificate.
+#
+# NOTE: The 'v3_ca' extension cannot be used with 'openssl req' because 
+#       'authorityKeyIdentifier = keyid:always,issuer:always' requires an issuing certificate. When generating a CSR for
+#       a CA, no issuer certificate is available, which results in the following errors:
+#         X509 V3 routines:v2i_AUTHORITY_KEYID:no issuer certificate:../crypto/x509/v3_akid.c:156:
+#         X509 V3 routines:X509V3_EXT_nconf_int:error in extension:../crypto/x509/v3_conf.c:48:section=v3_ca,
+#           name=authorityKeyIdentifier, value=keyid:always,issuer:always
+# Ref.: https://github.com/openssl/openssl/issues/22966
+openssl req -nodes -new -key "${CA}.key" -out "${CA}.csr" -config "openssl.cnf"
+# NOTE: Parameter '-days 3650' is required here because value from *.cnf file is ignored!
+openssl x509 -req -days 3650 -in "${CA}.csr" -signkey "${CA}.key" -out "${CA}.crt" \
+  -extensions v3_ca -extfile "openssl.cnf"
+
+# Verify certificate renewal
+# NOTE: If the issuer field is included in the Authority Key Identifier (AKID) extension, the issuer DN and serial number
+#       are copied from the issuing certificate. When a CA certificate is renewed, its serial number changes, which
+#       invalidates dependent certificates.
+CN=client
+openssl verify -CAfile "${CA}.crt" -verbose "${CN}.crt"
+
 
 # Optional: Revoke a particular user's certificate and update the Certificate Revocation list for removing user certificates
 CA=ca
