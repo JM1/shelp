@@ -7,6 +7,13 @@ exit # do not run any commands when file is executed
 #
 # Create SSL Certificates for authentication via Client Certificates
 #
+# Ref.:
+# [] https://docs.openssl.org/master/man1/openssl-ca/
+# [] https://docs.openssl.org/master/man1/openssl-req/
+# [] https://docs.openssl.org/master/man1/openssl-x509/
+# [] https://docs.openssl.org/master/man5/x509v3_config/
+# [] https://docs.openssl.org/master/man5/config/
+
 
 # Configure your certificate details
 
@@ -58,10 +65,12 @@ cat << EOF > openssl.cnf
 # export KEY_EMAIL    = jakob.meng@h-brs.de
 # export KEY_ALTNAMES = DNS:webserver.inf.h-brs.de,DNS:webserver,DNS:X00248.inf.h-brs.de,DNS:X00248
 #
-# References:
-#  /usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-1.0.0.cnf or /usr/share/easy-rsa/openssl-1.0.0.cnf
-#  https://www.phildev.net/ssl/opensslconf.html
-#  http://wiki.cacert.org/FAQ/subjectAltName
+# Ref.:
+# [0] /usr/share/doc/openvpn/examples/easy-rsa/2.0/openssl-1.0.0.cnf
+#     /usr/share/easy-rsa/openssl-1.0.0.cnf
+#     /usr/share/easy-rsa/openssl-easyrsa.cnf
+# [1] https://www.phildev.net/ssl/opensslconf.html
+# [2] http://wiki.cacert.org/FAQ/subjectAltName
 #  ~/################################/Stadt Köln/Backups/Benutzer ##### Backup ###############################.7z
 #
 
