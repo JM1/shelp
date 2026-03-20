@@ -443,4 +443,11 @@ openssl req -noout -text -in "${CN}.csr"
 CN=client
 openssl rsa -aes256 -in "${CN}.key" -out "${CN}.key.aes256"
 
+
+# Optional: Create a certificate signing request (CSR) from the expired certificate
+# NOTE: The serial number of the new certificate will not match that of the expired certificate.
+# NOTE: All extensions are copied except for the Subject Key Identifier and Authority Key Identifier extensions.
+[ -e "${CN}.csr" ] && mv -vi "${CN}.csr" "${CN}.csr.$(date +%Y%m%d%H%M%S -r "${CN}.csr")"
+openssl x509 -x509toreq -in "${CN}.crt" -key "${CN}.key" -out "${CN}.csr" -copy_extensions copyall
+
 ####################
