@@ -241,7 +241,11 @@ nsComment                      = "Certificate Configuration of $(date "+%Y-%m-%d
 
 # PKIX recommendations harmless if included in all certificates.
 subjectKeyIdentifier           = hash
-authorityKeyIdentifier         = keyid,issuer:always
+# NOTE: If the issuer field is included in the AKID extension specification, the issuer DN and serial number are copied
+#       from the issuing certificate. When a CA certificate is renewed, its serial number changes, which invalidates
+#       dependent certificates.
+#authorityKeyIdentifier         = keyid,issuer:always
+authorityKeyIdentifier         = keyid:always
 extendedKeyUsage               = clientAuth
 
 # This is typical in keyUsage for a client certificate.
@@ -267,7 +271,11 @@ basicConstraints               = CA:FALSE
 nsCertType                     = server
 nsComment                      = "Server Certificate Configuration of $(date "+%Y-%m-%d %H:%M:%S")"
 subjectKeyIdentifier           = hash
-authorityKeyIdentifier         = keyid,issuer:always
+# NOTE: If the issuer field is included in the AKID extension specification, the issuer DN and serial number are copied
+#       from the issuing certificate. When a CA certificate is renewed, its serial number changes, which invalidates
+#       dependent certificates.
+#authorityKeyIdentifier         = keyid,issuer:always
+authorityKeyIdentifier         = keyid:always
 extendedKeyUsage               = serverAuth
 keyUsage                       = digitalSignature, keyEncipherment
 # subjectAltName                 = \$ENV::KEY_ALTNAMES
